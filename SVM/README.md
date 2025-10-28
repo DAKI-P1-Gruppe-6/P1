@@ -1,3 +1,3 @@
-Havde en meget lang aften/nat i går, så jeg dukker nok ikke op til forelæsning.
+Havde en meget lang dag/aften/nat i går, så jeg dukker nok ikke op til forelæsning.
 Jeg har testet den lineære SVM model og den gav ikke den bedste accuracy, men rimelig god recall. 
 Tænkte jeg ville prøve med RBF bare for at se om det var bedre, men det var det slet ikke... 
