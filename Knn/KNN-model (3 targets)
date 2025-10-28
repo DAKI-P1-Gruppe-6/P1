@@ -1,0 +1,60 @@
+import pandas as pd
+import numpy as np
+import random
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, label_binarize
+from sklearn.model_selection import train_test_split
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
+
+# --- Setup ---
+seed = random.randint(0, 100)
+print(f"Seed: {seed}")
+
+diabetes_data = pd.read_csv("diabetes_dataset.csv") #Read CSV file
+
+#Encoding of object to binary
+
+ordinal_encoder = OrdinalEncoder()
+diabetes_data["education_level_encoded"] = ordinal_encoder.fit_transform(diabetes_data[["education_level"]])
+diabetes_data["smoking_status_encoded"] = ordinal_encoder.fit_transform(diabetes_data[["smoking_status"]])
+
+#Encoding object to groups
+onehot_encoder = OneHotEncoder(sparse_output=False)
+ethnicity_one_hot = onehot_encoder.fit_transform(diabetes_data[["gender","ethnicity","employment_status"]])
+
+ethnicity_one_hot_df = pd.DataFrame(ethnicity_one_hot,columns=onehot_encoder.get_feature_names_out(["gender","ethnicity","employment_status"]))
+data_encoded = pd.concat([diabetes_data.drop(["gender","ethnicity","employment_status"],axis=1),ethnicity_one_hot_df],axis=1)
+#Filter data to focus on only no diabetes, pre-diabetes and type 2
+filtered_data = diabetes_data[~diabetes_data["diabetes_stage"].isin(["Type 1", "Gestational"])].copy()
+
+
+filtered_data["diabetes_multi"] = filtered_data["diabetes_stage"].replace({
+    "No Diabetes": 0,
+    "Pre-Diabetes": 1,
+    "Type 2": 2
+})
+
+#Define X and y values from features to highlight clinical data
+X = filtered_data[["heart_rate", "glucose_fasting", "insulin_level", "hba1c"]]
+y = filtered_data["diabetes_multi"]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=seed)
+
+#Angiver k-værdi
+k = 200
+
+#Fitter modellen
+model = KNeighborsClassifier(n_neighbors=k)
+model.fit(X_train, y_train)
+
+#Laver prediction på modellen
+y_pred = model.predict(X_test)
+
+# 7. Beregner accuracy
+accuracy = accuracy_score(y_test, y_pred)
+
+# 8. Print resultatet
+print(f"KNN med k = {k}")
+print(f"Accuracy: {accuracy:.1%}")
+print(f"→ {int(accuracy * len(X_test))} rigtige ud af {len(X_test)} patienter")
