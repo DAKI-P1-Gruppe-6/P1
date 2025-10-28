@@ -26,8 +26,7 @@ ethnicity_one_hot = onehot_encoder.fit_transform(diabetes_data[["gender","ethnic
 ethnicity_one_hot_df = pd.DataFrame(ethnicity_one_hot,columns=onehot_encoder.get_feature_names_out(["gender","ethnicity","employment_status"]))
 data_encoded = pd.concat([diabetes_data.drop(["gender","ethnicity","employment_status"],axis=1),ethnicity_one_hot_df],axis=1)
 #Filter data to focus on only no diabetes, pre-diabetes and type 2
-filtered_data = diabetes_data[~diabetes_data["diabetes_stage"].isin(["Type 1", "Gestational"])].copy()
-
+filtered_data = data_encoded[~data_encoded["diabetes_stage"].isin(["Type 1", "Gestational"])].copy()
 
 filtered_data["diabetes_multi"] = filtered_data["diabetes_stage"].replace({
     "No Diabetes": 0,

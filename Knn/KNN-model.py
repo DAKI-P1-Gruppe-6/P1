@@ -50,7 +50,7 @@ y = filtered_data["diabetes_binary"]
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=seed)
 
 #Angiver k-værdi
-k = 200
+k = 199
 
 #Fitter modellen
 model = KNeighborsClassifier(n_neighbors=k)
