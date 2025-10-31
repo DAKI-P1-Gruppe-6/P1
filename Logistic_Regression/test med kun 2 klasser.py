@@ -43,8 +43,8 @@ filtered_data["diabetes_binary"] = filtered_data["diabetes_stage"].replace({
 })
 
 # --- Features og labels ---
-X = filtered_data[["heart_rate", "glucose_fasting", "insulin_level", "hba1c"]]
-# X = filtered_data[["age", "diet_score", "bmi", "smoking_status_encoded", "waist_to_hip_ratio", "sleep_hours_per_day"]]
+#X = filtered_data[["heart_rate", "glucose_fasting", "insulin_level", "hba1c"]]
+X = filtered_data[["age", "diet_score", "bmi", "smoking_status_encoded", "waist_to_hip_ratio", "sleep_hours_per_day"]]
 y = filtered_data["diabetes_binary"]
 
 # --- Split data ---
@@ -71,4 +71,4 @@ plt.xlabel("False Positive Rate")
 plt.ylabel("True Positive Rate")
 plt.title("ROC-kurve for binær diabetes klassifikation (No Diabetes vs Type 2)")
 plt.legend()
-plt.show()
+

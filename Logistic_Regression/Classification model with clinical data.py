@@ -36,11 +36,12 @@ filtered_data["diabetes_multi"] = filtered_data["diabetes_stage"].replace({
 
 
 #Define X and y values from features to highlight clinical data
-X = filtered_data[["heart_rate", "glucose_fasting", "insulin_level", "hba1c"]]
+X = filtered_data[["age", "diet_score", "bmi", "smoking_status_encoded", "waist_to_hip_ratio", "sleep_hours_per_day"]]
+#X = filtered_data[["heart_rate", "glucose_fasting", "insulin_level", "hba1c"]]
 y = filtered_data["diabetes_multi"]
 
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2,random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 y_bin = label_binarize(y, classes=[0, 1, 2])
 n_classes = y_bin.shape[1]
 
