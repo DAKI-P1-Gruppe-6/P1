@@ -1,8 +1,10 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import random
 
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, label_binarize
+from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import train_test_split
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -42,6 +44,7 @@ X_home = filtered_data[["age","diet_score","bmi","smoking_status_encoded","waist
 X_clinical = filtered_data[["heart_rate","glucose_fasting","insulin_level"]]
 y = filtered_data["hba1c_class"]
 
+
 #Model function
 def train_and_evaluate(X, y, label):
     X_train, X_test, y_train, y_test = train_test_split(
@@ -60,25 +63,24 @@ def train_and_evaluate(X, y, label):
     accuracy = accuracy_score(y_test, y_pred)
     print(f"{label} accuracy: {accuracy:.3f}")
 
-    y_test_bin = label_binarize(y_test, classes=[0, 1, 2])
-    y_score = model.predict_proba(X_test)
 
-    plt.figure(figsize=(8,6))
-    for i in range(y_score.shape[1]):
-        fpr, tpr, _ = roc_curve(y_test_bin[:, i], y_score[:, i])
-        roc_auc = auc(fpr, tpr)
-        plt.plot(fpr, tpr, lw=2, label=f"Klasse {i} (AUC = {roc_auc:.2f})")
+def cross_validate_model(X, y, label):
+    """
+    Kører 5-fold cross-validation og viser gennemsnitlig accuracy + standardafvigelse.
+    Bruges til at vurdere stabiliteten af modellen.
+    """
+    model = OneVsRestClassifier(LogisticRegression(max_iter=2000))
 
-    plt.plot([0,1],[0,1],"k--",lw=1)
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title(f"ROC-kurve for {label}")
-    plt.legend()
-    plt.show()
+    # Kør 5-fold krydsvalidering
+    scores = cross_val_score(model, X, y, cv=5)
 
-print(filtered_data["hba1c_class"].value_counts())
+    print(f"{label} (cross-val) accuracy: {scores.mean()*100:.3f} ± {scores.std()*100:.3f}")
 
 #Run models
+
 train_and_evaluate(X_home, y, "Hjemme-data")
+cross_validate_model(X_home, y, "Hjemme-data")
+
 train_and_evaluate(X_clinical, y, "Kliniske data")
+cross_validate_model(X_clinical, y, "Kliniske data")
 
