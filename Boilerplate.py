@@ -55,8 +55,8 @@ def train_and_evaluate(X, y, label):
 #####################################################################################################################
 
 
-
-    model = OneVsRestClassifier(LogisticRegression(max_iter=2000))
+    #Model definition with parameters
+    model = 
     model.fit(X_train, y_train)
 
     y_pred = model.predict(X_test)
@@ -65,18 +65,17 @@ def train_and_evaluate(X, y, label):
 
 
 def cross_validate_model(X, y, label):
-    """
-    Kører 5-fold cross-validation og viser gennemsnitlig accuracy + standardafvigelse.
-    Bruges til at vurdere stabiliteten af modellen.
-    """
-    model = OneVsRestClassifier(LogisticRegression(max_iter=2000))
 
-    # Kør 5-fold krydsvalidering
+    model = #Model definition with parameters
+
     scores = cross_val_score(model, X, y, cv=5)
 
-    print(f"{label} (cross-val) accuracy: {scores.mean()*100:.3f} ± {scores.std()*100:.3f}")
+    print(f"{label} (cross-val) accuracy procent: {scores.mean()*100:.3f} ± {scores.std()*100:.3f}")
 
 #Run models
+
+#Cross validates runs the model 5 times and calculates an averange
+#If grid search is needed, the code should be written in the function
 
 train_and_evaluate(X_home, y, "Hjemme-data")
 cross_validate_model(X_home, y, "Hjemme-data")
