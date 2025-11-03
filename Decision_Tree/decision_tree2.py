@@ -7,7 +7,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import roc_curve, auc, accuracy_score
-from sklearn.model_selection import GridSearchCV
 
 ################ BOILER PLATE FOR DATA ############################################################
 
@@ -51,43 +50,29 @@ def train_and_evaluate(X, y, label):
 
 
 #####################################################################################################################
-    # Define model and grid search
-    ovr_clf = OneVsRestClassifier(DecisionTreeClassifier())
 
-    param_grid = {
-        "estimator__max_depth": [5, 10, 15, 20, None],
-        "estimator__min_samples_split": [2, 5, 10, 20],
-        "estimator__max_leaf_nodes": [None, 5, 10, 20],
-        "estimator__criterion": ["gini", "entropy"]
-    }
 
-    grid_search = GridSearchCV(ovr_clf, param_grid, cv=5, scoring="accuracy", n_jobs=-1)
-    grid_search.fit(X_train, y_train)
 
-    print(f"\n### {label} ###")
-    print("Best hyperparameters:", grid_search.best_params_)
-    print("Best cross-validation accuracy:", grid_search.best_score_)
+    model = OneVsRestClassifier(DecisionTreeClassifier(criterion="entropy",max_depth=10,max_leaf_nodes=20,min_samples_leaf=2))
+    model.fit(X_train, y_train)
 
-    best_model = grid_search.best_estimator_
-
-    y_pred = best_model.predict(X_test)
+    y_pred = model.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
-    print(f"Test accuracy: {accuracy:.3f}")
+    print(f"{label} accuracy: {accuracy:.3f}")
 
-    # ROC curves
     y_test_bin = label_binarize(y_test, classes=[0, 1, 2])
-    y_score = best_model.predict_proba(X_test)
+    y_score = model.predict_proba(X_test)
 
     plt.figure(figsize=(8,6))
     for i in range(y_score.shape[1]):
         fpr, tpr, _ = roc_curve(y_test_bin[:, i], y_score[:, i])
         roc_auc = auc(fpr, tpr)
-        plt.plot(fpr, tpr, lw=2, label=f"Class {i} (AUC = {roc_auc:.2f})")
+        plt.plot(fpr, tpr, lw=2, label=f"Klasse {i} (AUC = {roc_auc:.2f})")
 
-    plt.plot([0, 1], [0, 1], "k--", lw=1)
+    plt.plot([0,1],[0,1],"k--",lw=1)
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
-    plt.title(f"ROC Curve for {label}")
+    plt.title(f"ROC-kurve for {label}")
     plt.legend()
     plt.show()
 
