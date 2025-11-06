@@ -1,12 +1,9 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, precision_score, recall_score, confusion_matrix
-from sklearn.preprocessing import label_binarize
-from sklearn.metrics import roc_curve, auc
-
-
+from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler, MinMaxScaler, label_binarize
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, confusion_matrix, roc_curve, auc
+from sklearn.linear_model import LogisticRegression # kan udskiftes
 # -------------------------------------------------------------
 # 1. Dataindlæsning og encoding
 # -------------------------------------------------------------
@@ -72,9 +69,10 @@ X_clinical = filtered_data[["glucose_fasting", "insulin_level", "heart_rate"]]
 y = filtered_data["hba1c_class"]
 
 # -------------------------------------------------------------
-# 5. Evaluering af model (boilerplate)
+# 5. Evaluering af model (boilerplate + cross-validation)
 # -------------------------------------------------------------
 def evaluate_model(X, y, label):
+    # Split data
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.25, stratify=y, random_state=42
     )
@@ -84,10 +82,17 @@ def evaluate_model(X, y, label):
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
 
-    # Her indsætter du selv den ønskede model
-    model = None
+    # --- Model (kan ændres her) ---
+    model = LogisticRegression(class_weight='balanced')
 
+    # --- Cross-validation ---
+    cv_scaler = MinMaxScaler()
+    X_scaled = cv_scaler.fit_transform(X)
+    cv_scores = cross_val_score(model, X_scaled, y, cv=5)
+    print(f"\n{label} ({model.__class__.__name__}) Cross-val accuracy: "
+          f"{cv_scores.mean()*100:.2f}% ± {cv_scores.std()*100:.2f}%")
 
+    # --- Modeltræning ---
     model.fit(X_train, y_train)
 
     # Forudsigelser
@@ -99,7 +104,7 @@ def evaluate_model(X, y, label):
     prec = precision_score(y_test, y_pred, average="weighted", zero_division=0)
     rec = recall_score(y_test, y_pred, average="weighted", zero_division=0)
 
-    # Klinisk “rigtig nok” accuracy (små fejl tilladt)
+    # Klinisk “rigtig nok” accuracy (±1 klasse)
     cm = confusion_matrix(y_test, y_pred)
     total = np.sum(cm)
     true_close = (
@@ -127,6 +132,8 @@ def evaluate_model(X, y, label):
         print(f"Klasse {i} AUC: {val:.3f}")
 
 
-
+# -------------------------------------------------------------
+# 6. Kør modeller
+# -------------------------------------------------------------
 evaluate_model(X_home, y, "Hjemme-data")
 evaluate_model(X_clinical, y, "Kliniske data")
