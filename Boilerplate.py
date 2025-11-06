@@ -6,6 +6,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, confu
 from sklearn.preprocessing import label_binarize
 from sklearn.metrics import roc_curve, auc
 
+
 # -------------------------------------------------------------
 # 1. Dataindlæsning og encoding
 # -------------------------------------------------------------
