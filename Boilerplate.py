@@ -4,9 +4,9 @@ from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler,
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import accuracy_score, precision_score, recall_score, confusion_matrix, roc_curve, auc
 from sklearn.linear_model import LogisticRegression # kan udskiftes
-# -------------------------------------------------------------
+
 # 1. Dataindlæsning og encoding
-# -------------------------------------------------------------
+
 diabetes_data = pd.read_csv("diabetes_dataset.csv")
 
 # Ordinal encoding
@@ -31,16 +31,13 @@ data_encoded = pd.concat(
     axis=1,
 )
 
-# -------------------------------------------------------------
 # 2. Filtrering og HbA1c-konvertering
-# -------------------------------------------------------------
+
 filtered_data = data_encoded[~data_encoded["diabetes_stage"].isin(["Type 1", "Gestational"])].copy()
 filtered_data = filtered_data.dropna(subset=["hba1c"])
 filtered_data["hba1c_mmolmol"] = 10.93 * filtered_data["hba1c"] - 23.5
 
-# -------------------------------------------------------------
 # 3. Klassifikation i 3 niveauer (IFCC standard)
-# -------------------------------------------------------------
 conditions = [
     (filtered_data["hba1c_mmolmol"] < 42),
     (filtered_data["hba1c_mmolmol"] >= 42) & (filtered_data["hba1c_mmolmol"] < 48),
@@ -84,7 +81,7 @@ def evaluate_model(X, y, label):
 
     # --- Model (kan ændres her) ---
     model = LogisticRegression(class_weight='balanced')
-
+    #--------------------------------------------------
     # --- Cross-validation ---
     cv_scaler = MinMaxScaler()
     X_scaled = cv_scaler.fit_transform(X)
