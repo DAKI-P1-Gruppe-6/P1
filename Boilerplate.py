@@ -74,7 +74,7 @@ y = filtered_data["hba1c_class"]
 # -------------------------------------------------------------
 # 5. Evaluering af model (boilerplate)
 # -------------------------------------------------------------
-def evaluate_model(X, y, label, model):
+def evaluate_model(X, y, label):
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.25, stratify=y, random_state=42
     )
@@ -128,5 +128,5 @@ def evaluate_model(X, y, label, model):
 
 
 
-evaluate_model(X_home, y, "Hjemme-data", model)
-evaluate_model(X_clinical, y, "Kliniske data", model)
+evaluate_model(X_home, y, "Hjemme-data")
+evaluate_model(X_clinical, y, "Kliniske data")
