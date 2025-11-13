@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+
+
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_curve, auc
@@ -32,6 +34,7 @@ data["hba1c_mmolmol"] = 10.93 * data["hba1c"] - 23.5
 # ============================================================
 # 3. BINARY CLASSIFICATION
 # ============================================================
+# <48 = 0 (No diabetes), >=48 = 1 (Diabetes)
 data["hba1c_class"] = (data["hba1c_mmolmol"] >= 48).astype(int)
 
 # ============================================================
@@ -71,7 +74,7 @@ def evaluate_model(X, y, label):
     X_test_s = scaler.transform(X_test)
 
     # Model
-    model = MODELHER
+    model = modelNavn
     
     # Cross-validation
     cv_scores = cross_val_score(model, scaler.fit_transform(X), y, cv=5)
