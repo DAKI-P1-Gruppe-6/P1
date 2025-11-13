@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, precision_score, recall_score, confusion_matrix, roc_curve, auc
-from sklearn.ensemble import GradientBoostingClassifier
+from xgboost import XGBClassifier
 import matplotlib.pyplot as plt  # Rettet import af matplotlib
 # -------------------------------------------------------------
 # 1. Dataindlæsning og encoding
@@ -82,11 +82,10 @@ def evaluate_model(X, y, label):
     X_test = scaler.transform(X_test)
 
     # Gradient Boosting model optimeret til lav CPU-belastning
-    model = GradientBoostingClassifier(
+    model = XGBClassifier(
         n_estimators=200,        # færre træer = hurtigere
-        max_depth=10,            # lavere dybde = mindre CPU-forbrug
-        min_samples_leaf=8,      # forhindrer overfitting
-        max_features="sqrt",     # hurtigere splits
+        max_depth=10,           # lavere dybde = mindre CPU-forbrug
+        learning_rate=1.0,
         random_state=42
     )
     model.fit(X_train, y_train)
