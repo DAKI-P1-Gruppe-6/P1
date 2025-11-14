@@ -73,6 +73,7 @@ y = filtered_data["hba1c_class"]
 # -------------------------------------------------------------
 # 5. Evaluering af model med GridSearchCV
 # -------------------------------------------------------------
+
 def evaluate_model_with_grid_search(X, y, label):
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.25, stratify=y, random_state=42
@@ -123,5 +124,6 @@ def evaluate_model_with_grid_search(X, y, label):
 # -------------------------------------------------------------
 # 6. Kør modeller med Grid Search
 # -------------------------------------------------------------
+print("dav")
 evaluate_model_with_grid_search(X_home, y, "Home data")
 evaluate_model_with_grid_search(X_clinical, y, "Clinical data")
