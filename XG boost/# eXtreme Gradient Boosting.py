@@ -6,55 +6,49 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, confu
 from xgboost import XGBClassifier
 import matplotlib.pyplot as plt
 
-# -------------------------------------------------------------
-# 1. Dataindlæsning og encoding
-# -------------------------------------------------------------
-diabetes_data = pd.read_csv("diabetes_dataset.csv")
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
 
-# Ordinal encoding
-diabetes_data["education_level_encoded"] = OrdinalEncoder().fit_transform(
-    diabetes_data[["education_level"]]
-)
-diabetes_data["smoking_status_encoded"] = OrdinalEncoder().fit_transform(
-    diabetes_data[["smoking_status"]]
-)
 
-# One-hot encoding
-onehot_encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
-ethnicity_one_hot = onehot_encoder.fit_transform(
-    diabetes_data[["gender", "ethnicity", "employment_status"]]
-)
-ethnicity_one_hot_df = pd.DataFrame(
-    ethnicity_one_hot,
-    columns=onehot_encoder.get_feature_names_out(["gender", "ethnicity", "employment_status"]),
-)
-data_encoded = pd.concat(
-    [diabetes_data.drop(["gender", "ethnicity", "employment_status"], axis=1), ethnicity_one_hot_df],
-    axis=1,
-)
+from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_curve, auc
+from sklearn.linear_model import LogisticRegression
 
-# -------------------------------------------------------------
-# 2. Filtrering og HbA1c-konvertering
-# -------------------------------------------------------------
-filtered_data = data_encoded[~data_encoded["diabetes_stage"].isin(["Type 1", "Gestational"])].copy()
-filtered_data = filtered_data.dropna(subset=["hba1c"])
-filtered_data["hba1c_mmolmol"] = 10.93 * filtered_data["hba1c"] - 23.5
+# ============================================================
+# 1. LOAD & PREPARE DATA
+# ============================================================
+data = pd.read_csv("diabetes_dataset.csv")
 
-# -------------------------------------------------------------
-# 3. Klassifikation i 3 niveauer (IFCC standard)
-# -------------------------------------------------------------
-conditions = [
-    (filtered_data["hba1c_mmolmol"] < 42),
-    (filtered_data["hba1c_mmolmol"] >= 42) & (filtered_data["hba1c_mmolmol"] < 48),
-    (filtered_data["hba1c_mmolmol"] >= 48),
-]
-values = [0, 1, 2]
-filtered_data["hba1c_class"] = np.select(conditions, values)
+# Encoding
+data["education_level_encoded"] = OrdinalEncoder().fit_transform(data[["education_level"]])
+data["smoking_status_encoded"] = OrdinalEncoder().fit_transform(data[["smoking_status"]])
 
-# -------------------------------------------------------------
-# 4. Feature sets
-# -------------------------------------------------------------
-X_home = filtered_data[
+onehot = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
+encoded = onehot.fit_transform(data[["gender", "ethnicity", "employment_status"]])
+encoded_df = pd.DataFrame(encoded, columns=onehot.get_feature_names_out(["gender", "ethnicity", "employment_status"]))
+data = pd.concat([data.drop(["gender", "ethnicity", "employment_status"], axis=1), encoded_df], axis=1)
+
+# ============================================================
+# 2. FILTERING
+# ============================================================
+data = data[~data["diabetes_stage"].isin(["Type 1", "Gestational"])].copy()
+data = data.dropna(subset=["hba1c"])
+
+# hba1c (NGSP %) → mmol/mol (IFCC)
+data["hba1c_mmolmol"] = 10.93 * data["hba1c"] - 23.5
+
+# ============================================================
+# 3. BINARY CLASSIFICATION
+# ============================================================
+# <48 = 0 (No diabetes), >=48 = 1 (Diabetes)
+data["hba1c_class"] = (data["hba1c_mmolmol"] >= 48).astype(int)
+
+# ============================================================
+# 4. FEATURE SETS
+# ============================================================
+X_home = data[
     [
         "age",
         "bmi",
@@ -67,63 +61,75 @@ X_home = filtered_data[
         "family_history_diabetes",
     ]
 ]
-X_clinical = filtered_data[["glucose_fasting", "insulin_level", "heart_rate"]]
-y = filtered_data["hba1c_class"]
 
-# -------------------------------------------------------------
-# 5. Evaluering af model med GridSearchCV
-# -------------------------------------------------------------
+X_clinical = data[["glucose_fasting", "insulin_level", "heart_rate"]]
 
-def evaluate_model_with_grid_search(X, y, label):
+y = data["hba1c_class"]
+
+# ============================================================
+# 5. EVALUATION FUNCTION (BINARY)
+# ============================================================
+def evaluate_model(X, y, label):
+
+    # Split
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.25, stratify=y, random_state=42
+        X, y, test_size=0.20, stratify=y, random_state=42
     )
 
+    # Scaling
     scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
+    X_train_s = scaler.fit_transform(X_train)
+    X_test_s = scaler.transform(X_test)
 
-    model = XGBClassifier(random_state=42)
+    # Model
+    model = XGBClassifier(n_estimators=10,gamma =0.5 ,max_depth =8,learning_rate =0.1, random_state=42)
+    
+    # Cross-validation
+    cv_scores = cross_val_score(model, scaler.fit_transform(X), y, cv=5)
+    print(f"\n{label} Cross-val accuracy: {cv_scores.mean()*100:.2f}% ± {cv_scores.std()*100:.2f}%")
 
-    param_grid = {
-        'n_estimators': [100, 200, 300],
-        'max_depth': [4, 6, 8, 10],
-        'learning_rate': [0.01, 0.1, 0.2, 0.3],
-        'subsample': [0.6, 0.8, 1.0],
-        'colsample_bytree': [0.6, 0.8, 1.0],
-        'gamma': [0, 0.1, 0.2],
-        'reg_alpha': [0, 0.1, 1],
-        'reg_lambda': [1, 1.5, 2]
-    }
+    # Training
+    model.fit(X_train_s, y_train)
 
-    grid_search = GridSearchCV(
-        estimator=model,
-        param_grid=param_grid,
-        scoring='accuracy',
-        cv=3,
-        verbose=1,
-        n_jobs=-1
-    )
+    # Predictions
+    y_pred = model.predict(X_test_s)
+    y_score = model.predict_proba(X_test_s)[:, 1]
 
-    grid_search.fit(X_train, y_train)
-
-    print(f"Best parameters found: {grid_search.best_params_}")
-    best_model = grid_search.best_estimator_
-
-    y_pred = best_model.predict(X_test)
-
+    # Metrics
     acc = accuracy_score(y_test, y_pred)
-    prec = precision_score(y_test, y_pred, average="weighted", zero_division=0)
-    rec = recall_score(y_test, y_pred, average="weighted", zero_division=0)
+    prec = precision_score(y_test, y_pred, zero_division=0)
+    rec = recall_score(y_test, y_pred, zero_division=0)
 
-    print(f"\n{'='*30}\n{label} - Grid Search Results\n{'='*30}")
-    print(f"Accuracy:             {acc:.3f}")
-    print(f"Precision (weighted): {prec:.3f}")
-    print(f"Recall (weighted):    {rec:.3f}")
+    # ROC curve
+    fpr, tpr, _ = roc_curve(y_test, y_score)
+    roc_auc = auc(fpr, tpr)
 
-# -------------------------------------------------------------
-# 6. Kør modeller med Grid Search
-# -------------------------------------------------------------
-print("dav")
-evaluate_model_with_grid_search(X_home, y, "Home data")
-evaluate_model_with_grid_search(X_clinical, y, "Clinical data")
+    # Print results
+    print(f"\n{'='*40}")
+    print(f"{label} RESULTS")
+    print(f"{'='*40}")
+    print(f"Accuracy:      {acc:.3f}")
+    print(f"Precision:     {prec:.3f}")
+    print(f"Recall:        {rec:.3f}")
+    print(f"ROC-AUC:       {roc_auc:.3f}")
+
+    # Plot ROC
+    plt.plot(fpr, tpr, label=f"{label} (AUC={roc_auc:.3f})")
+
+
+# ============================================================
+# 6. RUN MODELS
+# ============================================================
+plt.figure(figsize=(6, 4))
+
+evaluate_model(X_home, y, "Home Data")
+evaluate_model(X_clinical, y, "Clinical Data")
+
+plt.plot([0, 1], [0, 1], "k--")
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve – Binary Logistic Regression")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
