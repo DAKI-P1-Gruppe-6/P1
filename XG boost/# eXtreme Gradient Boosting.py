@@ -1,20 +1,10 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import accuracy_score, precision_score, recall_score, confusion_matrix, roc_curve, auc
-from xgboost import XGBClassifier
-import matplotlib.pyplot as plt
-
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-
-
-from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_curve, auc
-from sklearn.linear_model import LogisticRegression
+from xgboost import XGBClassifier
+import matplotlib.pyplot as plt
 
 # ============================================================
 # 1. LOAD & PREPARE DATA
@@ -39,25 +29,20 @@ data = data.dropna(subset=["hba1c"])
 # hba1c (NGSP %) → mmol/mol (IFCC)
 data["hba1c_mmolmol"] = 10.93 * data["hba1c"] - 23.5
 
-# ============================================================
-# 3. BINARY CLASSIFICATION
-# ============================================================
-# <48 = 0 (No diabetes), >=48 = 1 (Diabetes)
+# Binarize label
+mask_no_diabetes_high = (data["diabetes_stage"] == "no diabetes") & (data["hba1c_mmolmol"] > 48)
+mask_diabetes_low = data["diabetes_stage"].isin(["pre-diabetes", "Type 2"]) & (data["hba1c_mmolmol"] < 48)
+data = data[~(mask_no_diabetes_high | mask_diabetes_low)].copy()
 data["hba1c_class"] = (data["hba1c_mmolmol"] >= 48).astype(int)
 
 # ============================================================
-# 4. FEATURE SETS
+# 3. FEATURE SETS
 # ============================================================
 X_home = data[
     [
-        "age",
-        "bmi",
-        "waist_to_hip_ratio",
-        "diet_score",
-        "physical_activity_minutes_per_week",
-        "sleep_hours_per_day",
-        "smoking_status_encoded",
-        "alcohol_consumption_per_week",
+        "age", "bmi", "waist_to_hip_ratio", "diet_score",
+        "physical_activity_minutes_per_week", "sleep_hours_per_day",
+        "smoking_status_encoded", "alcohol_consumption_per_week",
         "family_history_diabetes",
     ]
 ]
@@ -67,69 +52,48 @@ X_clinical = data[["glucose_fasting", "insulin_level", "heart_rate"]]
 y = data["hba1c_class"]
 
 # ============================================================
-# 5. EVALUATION FUNCTION (BINARY)
+# 4. EVALUATION FUNCTION WITH CROSS-VALIDATION
 # ============================================================
-def evaluate_model(X, y, label):
-
-    # Split
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.20, stratify=y, random_state=42
-    )
-
-    # Scaling
+def evaluate_model_cv(X, y, label, cv=5):
     scaler = StandardScaler()
-    X_train_s = scaler.fit_transform(X_train)
-    X_test_s = scaler.transform(X_test)
+    X_scaled = scaler.fit_transform(X)
 
-    # Model
-    model = XGBClassifier(n_estimators=10,gamma =0.5 ,max_depth =8,learning_rate =0.1, random_state=42)
-    
-    # Cross-validation
-    cv_scores = cross_val_score(model, scaler.fit_transform(X), y, cv=5)
-    print(f"\n{label} Cross-val accuracy: {cv_scores.mean()*100:.2f}% ± {cv_scores.std()*100:.2f}%")
+    model = XGBClassifier(n_estimators=50,gamma =0.5 ,max_depth =4, subsample=0.8, colsample_bytree = 0.8 ,learning_rate =0.1, random_state=42)
+   
 
-    # Training
-    model.fit(X_train_s, y_train)
+    # 1️⃣ Krydsvalidering
+    cv_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring="accuracy")
+    print(f"\n{label} 5-fold CV accuracy: {cv_scores.mean()*100:.2f}% ± {cv_scores.std()*100:.2f}%")
 
-    # Predictions
-    y_pred = model.predict(X_test_s)
-    y_score = model.predict_proba(X_test_s)[:, 1]
+    # 2️⃣ Split og ROC på test
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, stratify=y, random_state=42)
+    model.fit(X_train, y_train)
 
-    # Metrics
+    y_pred = model.predict(X_test)
+    y_score = model.predict_proba(X_test)[:, 1]
+
     acc = accuracy_score(y_test, y_pred)
     prec = precision_score(y_test, y_pred, zero_division=0)
     rec = recall_score(y_test, y_pred, zero_division=0)
-
-    # ROC curve
     fpr, tpr, _ = roc_curve(y_test, y_score)
     roc_auc = auc(fpr, tpr)
 
-    # Print results
-    print(f"\n{'='*40}")
-    print(f"{label} RESULTS")
-    print(f"{'='*40}")
-    print(f"Accuracy:      {acc:.3f}")
-    print(f"Precision:     {prec:.3f}")
-    print(f"Recall:        {rec:.3f}")
-    print(f"ROC-AUC:       {roc_auc:.3f}")
+    print(f"{label} test set metrics:")
+    print(f"Accuracy: {acc:.3f}, Precision: {prec:.3f}, Recall: {rec:.3f}, ROC-AUC: {roc_auc:.3f}")
 
     # Plot ROC
-    plt.plot(fpr, tpr, label=f"{label} (AUC={roc_auc:.3f})")
-
+    plt.plot(fpr, tpr, lw=2, label=f"{label} (AUC={roc_auc:.3f})")
 
 # ============================================================
-# 6. RUN MODELS
+# 5. RUN MODELS
 # ============================================================
 plt.figure(figsize=(6, 4))
-
-evaluate_model(X_home, y, "Home Data")
-evaluate_model(X_clinical, y, "Clinical Data")
-
-plt.plot([0, 1], [0, 1], "k--")
+evaluate_model_cv(X_home, y, "Home Data")
+evaluate_model_cv(X_clinical, y, "Clinical Data")
+plt.plot([0,1],[0,1],"k--", lw=1)
 plt.xlabel("False Positive Rate")
 plt.ylabel("True Positive Rate")
-plt.title("ROC Curve – Binary Logistic Regression")
+plt.title("ROC Curve – Binary Classification")
 plt.legend()
 plt.tight_layout()
 plt.show()
-

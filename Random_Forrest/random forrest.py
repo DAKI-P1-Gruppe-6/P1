@@ -1,74 +1,92 @@
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, roc_curve, auc
+import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, label_binarize
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_curve, auc, accuracy_score, confusion_matrix, ConfusionMatrixDisplay
 
-################ BOILER PLATE FOR DATA ############################################################
+# ============================================================
+# 1. LOAD & PREPARE DATA
+# ============================================================
+data = pd.read_csv("diabetes_dataset.csv")
 
-diabetes_data = pd.read_csv("diabetes_dataset.csv")
+# Encoding
+data["education_level_encoded"] = OrdinalEncoder().fit_transform(data[["education_level"]])
+data["smoking_status_encoded"] = OrdinalEncoder().fit_transform(data[["smoking_status"]])
 
-#Encoding of object to binary
-ordinal_encoder = OrdinalEncoder()
-diabetes_data["education_level_encoded"] = ordinal_encoder.fit_transform(diabetes_data[["education_level"]])
-diabetes_data["smoking_status_encoded"] = ordinal_encoder.fit_transform(diabetes_data[["smoking_status"]])
+onehot = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
+encoded = onehot.fit_transform(data[["gender", "ethnicity", "employment_status"]])
+encoded_df = pd.DataFrame(encoded, columns=onehot.get_feature_names_out(["gender", "ethnicity", "employment_status"]))
+data = pd.concat([data.drop(["gender", "ethnicity", "employment_status"], axis=1), encoded_df], axis=1)
 
-#Encoding object to groups
-onehot_encoder = OneHotEncoder(sparse_output=False)
-ethnicity_one_hot = onehot_encoder.fit_transform(diabetes_data[["gender","ethnicity","employment_status"]])
-ethnicity_one_hot_df = pd.DataFrame(ethnicity_one_hot,columns=onehot_encoder.get_feature_names_out(["gender","ethnicity","employment_status"]))
-data_encoded = pd.concat([diabetes_data.drop(["gender","ethnicity","employment_status"],axis=1),ethnicity_one_hot_df],axis=1)
+# ============================================================
+# 2. FILTERING
+# ============================================================
+data = data[~data["diabetes_stage"].isin(["Type 1", "Gestational"])].copy()
+data = data.dropna(subset=["hba1c"])
 
-#Filtering data
-filtered_data = data_encoded[~data_encoded["diabetes_stage"].isin(["Type 1", "Gestational"])].copy()
-filtered_data["hba1c"] = (filtered_data["hba1c"] - 2.15) * 10.929
-filtered_data = filtered_data.dropna(subset=["hba1c"])
+# HbA1c (NGSP %) → mmol/mol (IFCC)
+data["hba1c_mmolmol"] = (data["hba1c"] - 2.15) * 10.929
 
-#HbA1c classification
-conditions = [
-    (filtered_data["hba1c"] < 42),
-    (filtered_data["hba1c"] >= 42) & (filtered_data["hba1c"] < 48),
-    (filtered_data["hba1c"] >= 48)
+# Fjern uoverensstemmende labels
+mask_no_diabetes_high = (data["diabetes_stage"] == "no diabetes") & (data["hba1c_mmolmol"] >= 48)
+mask_diabetes_low = data["diabetes_stage"].isin(["pre-diabetes", "Type 2"]) & (data["hba1c_mmolmol"] < 48)
+data = data[~(mask_no_diabetes_high | mask_diabetes_low)].copy()
+
+# Binær label
+data["hba1c_class"] = (data["hba1c_mmolmol"] >= 48).astype(int)
+print("\nClass counts:")
+print(data["hba1c_class"].value_counts())
+
+# ============================================================
+# 3. FEATURE SETS
+# ============================================================
+features_home = [
+    "age", "bmi", "waist_to_hip_ratio", "diet_score",
+    "physical_activity_minutes_per_week", "sleep_hours_per_day",
+    "smoking_status_encoded", "alcohol_consumption_per_week",
+    "family_history_diabetes"
 ]
-values = [0, 1, 2]
-filtered_data["hba1c_class"] = np.select(conditions, values)
 
-#Feature sets
-X_home = filtered_data[["age","diet_score","bmi","smoking_status_encoded","waist_to_hip_ratio","sleep_hours_per_day"]]
-X_clinical = filtered_data[["heart_rate","glucose_fasting","insulin_level"]]
-y = filtered_data["hba1c_class"]
+features_clinical = ["glucose_fasting", "insulin_level", "heart_rate"]
 
-#Model function
+X_home = data[features_home]
+X_clinical = data[features_clinical]
+y = data["hba1c_class"]
+
+# ============================================================
+# 4. TRAIN & EVALUATE FUNCTION
+# ============================================================
 def train_and_evaluate(X, y, label):
+    # Split
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
+        X, y, test_size=0.2, stratify=y, random_state=42
     )
 
+    # Standardisering
+    scaler = StandardScaler()
+    X_train_s = scaler.fit_transform(X_train)
+    X_test_s = scaler.transform(X_test)
 
-#####################################################################################################################
+    # Model
+    model = RandomForestClassifier(n_estimators=100, min_samples_leaf=21, random_state=42)
+    model.fit(X_train_s, y_train)
 
+    # Prediction
+    y_pred = model.predict(X_test_s)
+    y_score = model.predict_proba(X_test_s)[:, 1]  # sandsynlighed for klasse 1
 
+    # Accuracy
+    acc = accuracy_score(y_test, y_pred)
+    print(f"{label} accuracy: {acc:.3f}")
 
-    model = RandomForestClassifier(n_estimators=100, min_samples_leaf=21, random_state= 42 )
-    model.fit(X_train, y_train)
-
-    y_pred = model.predict(X_test)
-    accuracy = accuracy_score(y_test, y_pred)
-    print(f"{label} accuracy: {accuracy:.3f}")
-
-    y_test_bin = label_binarize(y_test, classes=[0, 1, 2])
-    y_score = model.predict_proba(X_test)
+    # ROC
+    fpr, tpr, _ = roc_curve(y_test, y_score)
+    roc_auc = auc(fpr, tpr)
 
     plt.figure(figsize=(8,6))
-    for i in range(y_score.shape[1]):
-        fpr, tpr, _ = roc_curve(y_test_bin[:, i], y_score[:, i])
-        roc_auc = auc(fpr, tpr)
-        plt.plot(fpr, tpr, lw=2, label=f"Klasse {i} (AUC = {roc_auc:.2f})")
-
+    plt.plot(fpr, tpr, lw=2, label=f"AUC = {roc_auc:.2f}")
     plt.plot([0,1],[0,1],"k--",lw=1)
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
@@ -76,8 +94,8 @@ def train_and_evaluate(X, y, label):
     plt.legend()
     plt.show()
 
-print(filtered_data["hba1c_class"].value_counts())
-
-#Run models
+# ============================================================
+# 5. RUN MODELS
+# ============================================================
 train_and_evaluate(X_home, y, "Hjemme-data")
 train_and_evaluate(X_clinical, y, "Kliniske data")
