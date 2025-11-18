@@ -273,9 +273,12 @@ def cross_validate_logreg(X, y, label):
 
     print("==============================================\n")
 
-train_best_logreg(X_home, y, "Hjemme data – Optimized Logistic Regression")
-cross_validate_logreg(X_home, y, "Hjemme data – Optimized Logistic Regression")
 
 train_best_logreg(X_clinical, y, "Kliniske data – Optimized Logistic Regression")
 cross_validate_logreg(X_clinical, y, "Kliniske data – Optimized Logistic Regression")
+
+train_best_logreg(X_home, y, "Hjemme data – Optimized Logistic Regression")
+cross_validate_logreg(X_home, y, "Hjemme data – Optimized Logistic Regression")
+
+
 
