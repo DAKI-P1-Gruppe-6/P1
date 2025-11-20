@@ -242,8 +242,4 @@ print(f"Kliniske data:   Accuracy {acc_clinical:.1%} | Precision {prec_clinical:
 
 
 
-print("\nFordeling af binær klasse EFTER undersampling (0 = No, 1 = Pre/Type2):")
-print(data["hba1c_class"].value_counts())
 
-print("\nFordeling af diabetes_stage EFTER undersampling:")
-print(data["diabetes_stage"].value_counts())
