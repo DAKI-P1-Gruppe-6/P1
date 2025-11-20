@@ -40,7 +40,7 @@ data["hba1c_class"] = (data["hba1c_mmolmol"] >= 48).astype(int)
 X_home = data[
     [
         "age",
-
+        "bmi",
         "diet_score",
         "physical_activity_minutes_per_week",
         "sleep_hours_per_day",
@@ -120,3 +120,4 @@ plt.title("ROC Curve – Binary Decision Tree classification")
 plt.legend()
 plt.tight_layout()
 plt.show()
+
