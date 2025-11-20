@@ -37,10 +37,18 @@ data = data.dropna(subset=["hba1c"])
 
 data["hba1c_mmolmol"] = 10.93 * data["hba1c"] - 23.5
 
+mask_no_diabetes_high = (data["diabetes_stage"] == "no diabetes") & (data["hba1c_mmolmol"] > 48)
+mask_diabetes_low = data["diabetes_stage"].isin(["pre-diabetes", "Type 2"]) & (data["hba1c_mmolmol"] < 48)
+
+data = data[~(mask_no_diabetes_high | mask_diabetes_low)].copy()
+
+data["hba1c_class"] = (data["hba1c_mmolmol"] >= 48).astype(int)
+
 # Fjern yderligere "midt i mellem" patienter for bedre læring
 data = data[(data["hba1c_mmolmol"] < 45) | (data["hba1c_mmolmol"] > 50)].copy()
 
 data["hba1c_class"] = (data["hba1c_mmolmol"] >= 48).astype(int)
+
 
 # ============================================================
 # 3. FEATURE SETS (FORBEDRET)
@@ -60,105 +68,13 @@ X_home = data[
 ]
 
 X_clinical = data[["glucose_fasting", "insulin_level", "heart_rate"]]
-y = data["hba1c_class"]
+y = data["diagnosed_diabetes"]
+
 
 # ============================================================
 # 4. TRAINING FUNCTION (LOGREG + THRESHOLD TUNING)
 # ============================================================
 def train_best_logreg(X, y, label):
-
-    # ============================================================
-    # Train-test split + scaling
-    # ============================================================
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
-    )
-
-    scaler = StandardScaler()
-    X_train_s = scaler.fit_transform(X_train)
-    X_test_s = scaler.transform(X_test)
-
-    # ============================================================
-    # Logistic Regression Model
-    # ============================================================
-    model = LogisticRegression(
-        C=5,
-        class_weight="balanced",
-        max_iter=500,
-        penalty="l2",
-        solver="saga"
-    )
-
-    model.fit(X_train_s, y_train)
-
-    # Probability predictions
-    y_prob = model.predict_proba(X_test_s)[:, 1]
-
-    # ============================================================
-    # THRESHOLD TUNING
-    # ============================================================
-    thresholds = np.linspace(0.1, 0.9, 200)
-    best_thresh = 0.5
-    best_acc = 0
-
-    for t in thresholds:
-        y_pred_t = (y_prob >= t).astype(int)
-        acc = accuracy_score(y_test, y_pred_t)
-        if acc > best_acc:
-            best_acc = acc
-            best_thresh = t
-
-    # Final prediction
-    y_pred = (y_prob >= best_thresh).astype(int)
-
-    # ============================================================
-    # PERFORMANCE METRICS
-    # ============================================================
-    acc = accuracy_score(y_test, y_pred)
-    prec = precision_score(y_test, y_pred)
-    rec = recall_score(y_test, y_pred)
-
-    # ROC AUC
-    fpr, tpr, _ = roc_curve(y_test, y_prob)
-    roc_auc = auc(fpr, tpr)
-
-    # ============================================================
-    # PRINT RESULTS CLEARLY
-    # ============================================================
-    print("\n==============================================")
-    print(f" RESULTS – {label}")
-    print("==============================================")
-    print(f"Optimized Threshold : {best_thresh:.3f}")
-    print(f"Accuracy            : {acc:.3f} ({acc*100:.1f}%)")
-    print(f"Precision           : {prec:.3f}")
-    print(f"Recall (TPR)        : {rec:.3f}")
-    print(f"ROC–AUC             : {roc_auc:.3f}")
-    print(f"Correct predictions : {int(acc * len(X_test))} / {len(X_test)}")
-    print("==============================================\n")
-
-    # ============================================================
-    # PLOT ROC CURVE
-    # ============================================================
-    plt.figure()
-    plt.plot(fpr, tpr, label=f"AUC = {roc_auc:.3f}")
-    plt.plot([0, 1], [0, 1], linestyle="--", color="gray")
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title(f"ROC Curve – {label}")
-    plt.legend()
-    plt.show()
-
-    # ============================================================
-    # CONFUSION MATRIX
-    # ============================================================
-    cm = confusion_matrix(y_test, y_pred)
-    plt.figure()
-    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
-    plt.title(f"Confusion Matrix – {label}")
-    plt.xlabel("Predicted")
-    plt.ylabel("Actual")
-    plt.show()
-
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y

@@ -403,7 +403,8 @@ def run_screening(model, scaler, best_threshold, percentiles,
 
     print(f"Risikogruppe: {group}")
 
-    # ---- LOCAL VALIDATION ----
+    ''' Dette stykke bruges til validering af bruger i forhold til datasæt ~ 58% acc 
+
     tolerance = 0.05
     low = risk - tolerance
     high = risk + tolerance
@@ -432,7 +433,7 @@ def run_screening(model, scaler, best_threshold, percentiles,
 
     print("============================================\n")
 
-
+'''
 
 train_best_logreg(X_home, y, "Hjemme data – Optimized Logistic Regression")
 cross_validate_logreg(X_home, y, "Hjemme data – Optimized Logistic Regression")

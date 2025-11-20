@@ -32,7 +32,13 @@ diabetes_data.head()
 diabetes_data.info()
 diabetes_data.describe()
 
-
+# Antal observationer i hver af de tre klasser vi arbejder med
+# Filtrér Type 1 og Gestational fra, så vi kun ser de tre klasser vi arbejder med
+filtered_data = diabetes_data[~diabetes_data["diabetes_stage"].isin(["Type 1", "Gestational"])].copy()
+stage_counts = filtered_data["diabetes_stage"].value_counts()
+print("\nAntal observationer pr. diabetes_stage (No Diabetes / Pre-Diabetes / Type 2):")
+for stage in ["No Diabetes", "Pre-Diabetes", "Type 2"]:
+    print(f"{stage}: {stage_counts.get(stage, 0)}")
 data_encoded.iloc[:, 0:10].hist(bins=50, figsize=(20, 15))
 plt.tight_layout()
 plt.show()

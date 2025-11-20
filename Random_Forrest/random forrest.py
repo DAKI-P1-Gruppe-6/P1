@@ -76,9 +76,15 @@ def evaluate_model_cv(X, y, label, cv=5):
     cv_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring="accuracy")
     print(f"\n{label} 5-fold CV accuracy: {cv_scores.mean()*100:.2f}% ± {cv_scores.std()*100:.2f}%")
 
+<<<<<<< Updated upstream
     # 2️⃣ Split og ROC på test
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, stratify=y, random_state=42)
     model.fit(X_train, y_train)
+=======
+    # Model
+    model = RandomForestClassifier(n_estimators=10, min_samples_leaf=21, random_state=42)
+    model.fit(X_train_s, y_train)
+>>>>>>> Stashed changes
 
     y_pred = model.predict(X_test)
     y_score = model.predict_proba(X_test)[:, 1]

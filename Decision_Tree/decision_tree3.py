@@ -52,7 +52,7 @@ X_home = data[
 
 X_clinical = data[["glucose_fasting", "insulin_level", "heart_rate"]]
 
-y = data["hba1c_class"]
+y = data["diagnosed_diabetes"]
 
 # ============================================================
 # 5. EVALUATION FUNCTION (BINARY)

@@ -2,11 +2,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_curve, auc
-from sklearn.linear_model import LogisticRegression
 
 # ============================================================
 # 1. LOAD & PREPARE DATA
@@ -68,16 +66,17 @@ def evaluate_model(X, y, label):
         X, y, test_size=0.20, stratify=y, random_state=42
     )
 
+
+    model = MODELHER
+
     # Scaling
     scaler = StandardScaler()
     X_train_s = scaler.fit_transform(X_train)
     X_test_s = scaler.transform(X_test)
 
-    # Model
-    model = modelNavn
-    
-    # Cross-validation
-    cv_scores = cross_val_score(model, scaler.fit_transform(X), y, cv=5)
+    # Cross-validation (scaled)
+    X_scaled_full = scaler.fit_transform(X)
+    cv_scores = cross_val_score(model, X_scaled_full, y, cv=5)
     print(f"\n{label} Cross-val accuracy: {cv_scores.mean()*100:.2f}% ± {cv_scores.std()*100:.2f}%")
 
     # Training
@@ -98,7 +97,7 @@ def evaluate_model(X, y, label):
 
     # Print results
     print(f"\n{'='*40}")
-    print(f"{label} RESULTS")
+    print(f"{label} RESULTS ({model.__class__.__name__})")
     print(f"{'='*40}")
     print(f"Accuracy:      {acc:.3f}")
     print(f"Precision:     {prec:.3f}")
@@ -112,6 +111,9 @@ def evaluate_model(X, y, label):
 # ============================================================
 # 6. RUN MODELS
 # ============================================================
+from sklearn.linear_model import LogisticRegression
+modelNavn = LogisticRegression(class_weight="balanced", max_iter=500)
+
 plt.figure(figsize=(6, 4))
 
 evaluate_model(X_home, y, "Home Data")
@@ -120,7 +122,7 @@ evaluate_model(X_clinical, y, "Clinical Data")
 plt.plot([0, 1], [0, 1], "k--")
 plt.xlabel("False Positive Rate")
 plt.ylabel("True Positive Rate")
-plt.title("ROC Curve – Binary Logistic Regression")
+plt.title("ROC Curve – Binary Classification")
 plt.legend()
 plt.tight_layout()
 plt.show()
