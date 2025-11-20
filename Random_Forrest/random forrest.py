@@ -1,7 +1,7 @@
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, roc_curve, auc
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_curve, auc
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -56,46 +56,55 @@ X_clinical = data[features_clinical]
 y = data["hba1c_class"]
 
 # ============================================================
-# 4. TRAIN & EVALUATE FUNCTION
+# 4. TRAIN & EVALUATE FUNCTION WITH CROSS-VALIDATION
 # ============================================================
-def train_and_evaluate(X, y, label):
-    # Split
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, stratify=y, random_state=42
+def evaluate_model_cv(X, y, label, cv=5):
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    model = RandomForestClassifier(
+        n_estimators=100,        # færre træer = hurtigere
+        max_depth=6,           # lavere dybde = mindre CPU-forbrug
+        min_samples_leaf=4,     # forhindrer overfitting
+        max_features="sqrt",    # hurtigere splits
+        class_weight="balanced",
+        n_jobs=-1,              # brug alle kerner (hurtigere)
+        random_state=42
     )
 
-    # Standardisering
-    scaler = StandardScaler()
-    X_train_s = scaler.fit_transform(X_train)
-    X_test_s = scaler.transform(X_test)
+    # 1️⃣ Krydsvalidering
+    cv_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring="accuracy")
+    print(f"\n{label} 5-fold CV accuracy: {cv_scores.mean()*100:.2f}% ± {cv_scores.std()*100:.2f}%")
 
-    # Model
-    model = RandomForestClassifier(n_estimators=100, min_samples_leaf=21, random_state=42)
-    model.fit(X_train_s, y_train)
+    # 2️⃣ Split og ROC på test
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, stratify=y, random_state=42)
+    model.fit(X_train, y_train)
 
-    # Prediction
-    y_pred = model.predict(X_test_s)
-    y_score = model.predict_proba(X_test_s)[:, 1]  # sandsynlighed for klasse 1
+    y_pred = model.predict(X_test)
+    y_score = model.predict_proba(X_test)[:, 1]
 
-    # Accuracy
     acc = accuracy_score(y_test, y_pred)
-    print(f"{label} accuracy: {acc:.3f}")
-
-    # ROC
+    prec = precision_score(y_test, y_pred, zero_division=0)
+    rec = recall_score(y_test, y_pred, zero_division=0)
     fpr, tpr, _ = roc_curve(y_test, y_score)
     roc_auc = auc(fpr, tpr)
 
-    plt.figure(figsize=(8,6))
-    plt.plot(fpr, tpr, lw=2, label=f"AUC = {roc_auc:.2f}")
-    plt.plot([0,1],[0,1],"k--",lw=1)
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title(f"ROC-kurve for {label}")
-    plt.legend()
-    plt.show()
+    print(f"{label} test set metrics:")
+    print(f"Accuracy: {acc:.3f}, Precision: {prec:.3f}, Recall: {rec:.3f}, ROC-AUC: {roc_auc:.3f}")
+
+    # Plot ROC
+    plt.plot(fpr, tpr, lw=2, label=f"{label} (AUC={roc_auc:.3f})")
 
 # ============================================================
 # 5. RUN MODELS
 # ============================================================
-train_and_evaluate(X_home, y, "Hjemme-data")
-train_and_evaluate(X_clinical, y, "Kliniske data")
+plt.figure(figsize=(6, 4))
+evaluate_model_cv(X_home, y, "Home Data")
+evaluate_model_cv(X_clinical, y, "Clinical Data")
+plt.plot([0,1],[0,1],"k--", lw=1)
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve – Binary Classification")
+plt.legend()
+plt.tight_layout()
+plt.show()
