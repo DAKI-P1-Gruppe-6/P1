@@ -191,8 +191,9 @@ plt.title("Confusion Matrix – Home Data (Labeled)")
 plt.colorbar()
 
 # Axis labels
-plt.xticks([0, 1], ["TP", "FP"])
-plt.yticks([0, 1], ["TN", "FN"])
+plt.yticks([0, 1], ["Positive", "Negativ"])
+plt.xticks([0, 1], ["True", "False"])
+
 
 # Write both label + number inside squares
 for i in range(2):
