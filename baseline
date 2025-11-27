@@ -1,0 +1,131 @@
+import pandas as pd
+import numpy as np
+from scipy.optimize import curve_fit
+from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_curve, auc, confusion_matrix
+from sklearn.tree import DecisionTreeClassifier
+
+# ============================================================
+# 1. LOAD & PREPARE DATA
+# ============================================================
+data = pd.read_csv("diabetes_dataset.csv")
+
+# Encoding
+data["education_level_encoded"] = OrdinalEncoder().fit_transform(data[["education_level"]])
+data["smoking_status_encoded"] = OrdinalEncoder().fit_transform(data[["smoking_status"]])
+
+onehot = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
+encoded = onehot.fit_transform(data[["gender", "ethnicity", "employment_status"]])
+encoded_df = pd.DataFrame(encoded, columns=onehot.get_feature_names_out(["gender", "ethnicity", "employment_status"]))
+data = pd.concat([data.drop(["gender", "ethnicity", "employment_status"], axis=1), encoded_df], axis=1)
+
+# ============================================================
+# 2. FILTERING
+# ============================================================
+data = data[~data["diabetes_stage"].isin(["Type 1", "Gestational"])].copy()
+data = data.dropna(subset=["hba1c"])
+
+# hba1c (NGSP %) → mmol/mol (IFCC)
+data["hba1c_mmolmol"] = 10.93 * data["hba1c"] - 23.5
+data = data[~((data["hba1c_mmolmol"] < 48) & (data["diabetes_stage"] == "Type 2"))]
+
+# ============================================================
+# 3. BINARY CLASSIFICATION
+# ============================================================
+data["hba1c_class"] = (data["hba1c_mmolmol"] >= 48).astype(int)
+
+# ============================================================
+# 4. FEATURE SETS
+# ============================================================
+X_home = data[
+    [
+        "age",
+        "bmi",
+        "diet_score",
+        "physical_activity_minutes_per_week",
+        "sleep_hours_per_day",
+        "smoking_status_encoded",
+        "alcohol_consumption_per_week",
+        "family_history_diabetes",
+    ]
+]
+
+X_clinical = data[["glucose_fasting", "insulin_level", "heart_rate"]]
+y = data["diagnosed_diabetes"]
+
+# ============================================================
+# 5. BASELINE OVERVIEW - NUMERICAL FEATURES SUMMARY
+# ============================================================
+
+def print_features_summary(X, feature_set_name):
+    """
+    Printer detaljeret statistik for alle features
+    """
+    print(f"\n{'='*100}")
+    print(f"NUMERICAL FEATURES SUMMARY - {feature_set_name}")
+    print(f"{'='*100}\n")
+    
+    # Beregn statistik
+    summary_data = []
+    
+    for col in X.columns:
+        count = X[col].count()
+        mean = X[col].mean()
+        median = X[col].median()
+        std = X[col].std()
+        variance = X[col].var()
+        min_val = X[col].min()
+        max_val = X[col].max()
+        
+        summary_data.append({
+            'Feature': col,
+            'Count': count,
+            'Mean': mean,
+            'Median': median,
+            'Std Dev': std,
+            'Variance': variance,
+            'Min': min_val,
+            'Max': max_val
+        })
+    
+    summary_df = pd.DataFrame(summary_data)
+    
+    # Print som tabel
+    print(f"{'Feature':<40} {'Count':>8} {'Mean':>10} {'Median':>10} {'Std Dev':>10} {'Variance':>12} {'Min':>8} {'Max':>8}")
+    print("-" * 100)
+    
+    for idx, row in summary_df.iterrows():
+        print(f"{row['Feature']:<40} {row['Count']:>8.0f} {row['Mean']:>10.2f} {row['Median']:>10.2f} {row['Std Dev']:>10.2f} {row['Variance']:>12.2f} {row['Min']:>8.2f} {row['Max']:>8.2f}")
+    
+    print("-" * 100)
+    print(f"{'TOTAL SAMPLES':<40} {len(X):>8.0f}")
+    print(f"{'='*100}\n")
+    
+    return summary_df
+
+
+# Kør for begge feature sets
+home_summary = print_features_summary(X_home, "HJEMME-DATA")
+clinical_summary = print_features_summary(X_clinical, "KLINISKE DATA")
+
+# ============================================================
+# 6. KOMBINERET OVERSIGT
+# ============================================================
+
+print(f"\n{'='*100}")
+print(f"KOMBINERET OVERSIGT")
+print(f"{'='*100}")
+print(f"\nHjemme-data features: {len(X_home.columns)}")
+print(f"  - Total samples: {len(X_home)}")
+print(f"  - Features: {', '.join(X_home.columns.tolist())}")
+
+print(f"\nKliniske data features: {len(X_clinical.columns)}")
+print(f"  - Total samples: {len(X_clinical)}")
+print(f"  - Features: {', '.join(X_clinical.columns.tolist())}")
+
+print(f"\nTarget variabel (y): {len(y)} samples")
+print(f"  - Klasse fordeling:")
+print(f"    Klasse 0: {(y == 0).sum()} ({(y == 0).sum() / len(y) * 100:.1f}%)")
+print(f"    Klasse 1: {(y == 1).sum()} ({(y == 1).sum() / len(y) * 100:.1f}%)")
+print(f"\n{'='*100}\n")
