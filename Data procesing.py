@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
@@ -18,7 +19,10 @@ from sklearn.metrics import (
 # ============================================================
 # 1. LOAD & PREPARE DATA
 # ============================================================
-data = pd.read_csv("diabetes_dataset.csv")
+# Konstruer path til diabetes_dataset.csv relativt til denne fil
+script_dir = os.path.dirname(os.path.abspath(__file__))
+data_path = os.path.join(script_dir, "diabetes_dataset.csv")
+data = pd.read_csv(data_path)
 
 # Encoding
 data["education_level_encoded"] = OrdinalEncoder().fit_transform(data[["education_level"]])
