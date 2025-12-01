@@ -47,13 +47,12 @@ def evaluate_model(X, y, label):
 
     # --- GridSearchCV for optimal parameters ---
     param_grid = {
-        'n_estimators': [50, 100, 200],
-        'max_depth': [3, 4, 5, 6],
-        'learning_rate': [0.01, 0.1, 0.2],
-        'gamma': [0, 0.5, 1.0],
-        'subsample': [0.8, 0.9, 1.0],
-        'colsample_bytree': [0.8, 0.9, 1.0],
-        'min_child_weight': [1, 3, 5]
+        'n_estimators': [50, 100],
+        'max_depth': [3, 4, 5],
+        'learning_rate': [0.1, 0.2],
+        'gamma': [0, 0.5],
+        'subsample': [0.8, 0.9],
+        'colsample_bytree': [0.8, 0.9]
     }
     
     xgb_model = XGBClassifier(
@@ -65,7 +64,7 @@ def evaluate_model(X, y, label):
     grid_search = GridSearchCV(
         xgb_model,
         param_grid,
-        cv=5,
+        cv=1,  # No cross-validation for faster execution
         scoring='roc_auc',
         n_jobs=1,  # Changed from -1 to avoid Python 3.13 multiprocessing bug
         verbose=1
@@ -75,7 +74,7 @@ def evaluate_model(X, y, label):
     grid_search.fit(X_train_scaled, y_train)
     
     print(f"\nBest parameters: {grid_search.best_params_}")
-    print(f"Best cross-validation ROC-AUC: {grid_search.best_score_:.4f}")
+    print(f"Best training ROC-AUC: {grid_search.best_score_:.4f}")
     
     # Use best model
     model = grid_search.best_estimator_

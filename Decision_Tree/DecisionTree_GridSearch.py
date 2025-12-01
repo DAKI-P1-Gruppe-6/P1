@@ -48,12 +48,12 @@ def evaluate_model(X, y, label):
     # --- GridSearchCV for optimal parameters ---
     param_grid = {
         'criterion': ['gini', 'entropy'],
-        'max_depth': [10, 20, 30, 40, 50, None],
-        'min_samples_split': [2, 5, 10, 15, 20],
-        'min_samples_leaf': [1, 5, 10, 15, 20],
-        'max_leaf_nodes': [10, 20, 30, 40, 50, None],
-        'min_impurity_decrease': [0.0, 1e-5, 1e-4, 1e-3],
-        'max_features': ['sqrt', 'log2', None]
+        'max_depth': [20, 30, 40, None],
+        'min_samples_split': [5, 10, 15],
+        'min_samples_leaf': [5, 10, 15],
+        'max_leaf_nodes': [20, 30, 40, None],
+        'min_impurity_decrease': [0.0, 1e-5, 1e-4],
+        'max_features': ['sqrt', None]
     }
     
     dt_model = DecisionTreeClassifier(random_state=42)
@@ -61,7 +61,7 @@ def evaluate_model(X, y, label):
     grid_search = GridSearchCV(
         dt_model,
         param_grid,
-        cv=5,
+        cv=1,  # No cross-validation for faster execution
         scoring='roc_auc',
         n_jobs=1,  # Changed from -1 to avoid Python 3.13 multiprocessing bug
         verbose=1
@@ -71,7 +71,7 @@ def evaluate_model(X, y, label):
     grid_search.fit(X_train_scaled, y_train)
     
     print(f"\nBest parameters: {grid_search.best_params_}")
-    print(f"Best cross-validation ROC-AUC: {grid_search.best_score_:.4f}")
+    print(f"Best training ROC-AUC: {grid_search.best_score_:.4f}")
     
     # Use best model
     model = grid_search.best_estimator_
