@@ -1,6 +1,6 @@
 """
 Model Comparison Script
-Kører alle modellerne (RF, XGB, LOG, KNN, SVM, DT) og sammenligner deres resultater.
+Kører alle modellerne (XGB, KNN, DT) og sammenligner deres resultater.
 """
 import pandas as pd
 import numpy as np
@@ -11,11 +11,8 @@ from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_curve, auc
 
 # Models
-from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 
 # ============================================================
@@ -89,24 +86,7 @@ def evaluate_model(model, X, y, label, scaler_type='standard'):
 
 # KNN - find best k
 def find_best_knn(X, y):
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, stratify=y, random_state=42
-    )
-    scaler = MinMaxScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-    
-    best_k = 20
-    best_score = 0
-    for k in range(20, 100, 5):
-        knn = KNeighborsClassifier(n_neighbors=k)
-        knn.fit(X_train_scaled, y_train)
-        y_proba = knn.predict_proba(X_test_scaled)[:, 1]
-        fpr, tpr, _ = roc_curve(y_test, y_proba)
-        score = auc(fpr, tpr)
-        if score > best_score:
-            best_score = score
-            best_k = k
+    best_k = 95
     return best_k
 
 # ============================================================
@@ -123,22 +103,8 @@ print("\n" + "="*80)
 print("TESTING ON HOME DATA (X_home)")
 print("="*80)
 
-# Random Forest
-print("\n1. Random Forest...")
-rf_model = RandomForestClassifier(
-    n_estimators=100,
-    max_depth=6,
-    min_samples_leaf=4,
-    max_features="sqrt",
-    class_weight="balanced",
-    n_jobs=-1,
-    random_state=42
-)
-result = evaluate_model(rf_model, X_home, y, "Random Forest (Home)")
-results.append(result)
-
 # XGBoost
-print("\n2. XGBoost...")
+print("\n1. XGBoost...")
 xgb_model = XGBClassifier(
     n_estimators=50,
     gamma=0.5,
@@ -153,42 +119,16 @@ xgb_model = XGBClassifier(
 result = evaluate_model(xgb_model, X_home, y, "XGBoost (Home)")
 results.append(result)
 
-# Logistic Regression
-print("\n3. Logistic Regression...")
-lr_model = LogisticRegression(
-    C=5,
-    class_weight="balanced",
-    max_iter=500,
-    penalty="l2",
-    solver="saga",
-    random_state=42
-)
-result = evaluate_model(lr_model, X_home, y, "Logistic Regression (Home)")
-results.append(result)
-
 # KNN
-print("\n4. K-Nearest Neighbors...")
+print("\n2. K-Nearest Neighbors...")
 best_k = find_best_knn(X_home, y)
 print(f"Best k: {best_k}")
 knn_model = KNeighborsClassifier(n_neighbors=best_k)
 result = evaluate_model(knn_model, X_home, y, "KNN (Home)", scaler_type='minmax')
 results.append(result)
 
-# SVM
-print("\n5. Support Vector Machine...")
-svm_model = SVC(
-    C=1.0,
-    kernel='rbf',
-    gamma='scale',
-    class_weight='balanced',
-    probability=True,
-    random_state=42
-)
-result = evaluate_model(svm_model, X_home, y, "SVM (Home)")
-results.append(result)
-
 # Decision Tree
-print("\n6. Decision Tree...")
+print("\n3. Decision Tree...")
 dt_model = DecisionTreeClassifier(
     criterion="entropy",
     max_depth=36,
