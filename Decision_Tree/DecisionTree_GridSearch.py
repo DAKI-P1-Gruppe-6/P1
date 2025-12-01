@@ -61,7 +61,7 @@ def evaluate_model(X, y, label):
     grid_search = GridSearchCV(
         dt_model,
         param_grid,
-        cv=1,  # No cross-validation for faster execution
+        cv=2,  # Minimal cross-validation for faster execution
         scoring='roc_auc',
         n_jobs=1,  # Changed from -1 to avoid Python 3.13 multiprocessing bug
         verbose=1
