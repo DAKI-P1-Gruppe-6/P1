@@ -56,10 +56,9 @@ def train_and_evaluate_xgboost(X, y, label):
     # Definer XGBoost model med dine specifikke hyperparametre
     model = XGBClassifier(
         n_estimators=50,
-        gamma=0.5,
-        max_depth=4,
+        gamma=0,
+        max_depth=3,
         subsample=0.8,
-        colsample_bytree=0.8,
         learning_rate=0.1,
         random_state=42,
         eval_metric='logloss'
