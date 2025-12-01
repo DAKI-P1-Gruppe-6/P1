@@ -1,6 +1,8 @@
 
 import pandas as pd
 import matplotlib.pyplot as mpl
+import importlib.util
+import os
 
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import train_test_split, cross_val_score
@@ -9,46 +11,18 @@ from sklearn.preprocessing import OneHotEncoder,OrdinalEncoder,StandardScaler
 from sklearn.model_selection import RandomizedSearchCV
 from scipy.stats import randint
 
+# ============================================================
+# IMPORT DATA FROM Data procesing.py
+# ============================================================
+script_dir = os.path.dirname(os.path.abspath(__file__))
+data_processing_path = os.path.join(script_dir, "..", "Data procesing.py")
+spec = importlib.util.spec_from_file_location("data_processing", data_processing_path)
+data_processing = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(data_processing)
 
-
-dataset = pd.read_csv("diabetes_dataset.csv")
-
-dataset[["education_level_encoded"]]= OrdinalEncoder().fit_transform(dataset[["education_level"]])
-dataset[["smoking_status_encoded"]]= OrdinalEncoder().fit_transform(dataset[["smoking_status"]])
-
-onehot = OneHotEncoder(sparse_output=False,handle_unknown="ignore")
-data_onehot = onehot.fit_transform(dataset[["gender","ethnicity","employment_status"]])
-data_onehot_pd = pd.DataFrame(data_onehot,columns=onehot.get_feature_names_out(["gender","ethnicity","employment_status"]))
-dataset = pd.concat([dataset.drop(["gender","ethnicity","employment_status"],axis=1),data_onehot_pd],axis=1)
-
-data = dataset[~dataset["diabetes_stage"].isin(["Type 1", "Gestational"])].copy()
-dataset = dataset.dropna(subset=["hba1c"])
-
-dataset["hba1c_mmolmol"] = 10.93 * dataset["hba1c"] - 23.5
-# Drop rows where hba1c_class <48 AND diabetes_stage == Type 2
-dataset = dataset[~((dataset["hba1c_mmolmol"] < 48) & (dataset["diabetes_stage"] == "Type 2"))]
-dataset = dataset[~((dataset["hba1c_mmolmol"] > 48) & 
-                    ((dataset["diabetes_stage"] == "Pre-Diabetes") | 
-                     (dataset["diabetes_stage"] == "No Diabetes")))]
-
-dataset["hba1c_class"] = (dataset["hba1c_mmolmol"]>=48).astype(int)
-X_home = dataset[
-    [
-        "age",
-        "bmi",
-        "waist_to_hip_ratio",
-        "diet_score",
-        "physical_activity_minutes_per_week",
-        "sleep_hours_per_day",
-        "smoking_status_encoded",
-        "alcohol_consumption_per_week",
-        "family_history_diabetes",
-    ]
-]
-
-X_clinical = dataset[["glucose_fasting", "insulin_level", "heart_rate"]]
-
-y= dataset["hba1c_class"]
+X_home = data_processing.X_home
+X_clinical = data_processing.X_clinical
+y = data_processing.y
 from scipy.stats import randint, uniform
 import seaborn as sns
 

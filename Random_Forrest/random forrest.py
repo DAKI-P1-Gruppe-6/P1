@@ -2,56 +2,26 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_curve, auc
-import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import importlib.util
+import os
 
 # ============================================================
-# 1. LOAD & PREPARE DATA
+# IMPORT DATA FROM Data procesing.py
 # ============================================================
-data = pd.read_csv("diabetes_dataset.csv")
+script_dir = os.path.dirname(os.path.abspath(__file__))
+data_processing_path = os.path.join(script_dir, "..", "Data procesing.py")
+spec = importlib.util.spec_from_file_location("data_processing", data_processing_path)
+data_processing = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(data_processing)
 
-# Encoding
-data["education_level_encoded"] = OrdinalEncoder().fit_transform(data[["education_level"]])
-data["smoking_status_encoded"] = OrdinalEncoder().fit_transform(data[["smoking_status"]])
+X_home = data_processing.X_home
+X_clinical = data_processing.X_clinical
+y = data_processing.y
 
-onehot = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
-encoded = onehot.fit_transform(data[["gender", "ethnicity", "employment_status"]])
-encoded_df = pd.DataFrame(encoded, columns=onehot.get_feature_names_out(["gender", "ethnicity", "employment_status"]))
-data = pd.concat([data.drop(["gender", "ethnicity", "employment_status"], axis=1), encoded_df], axis=1)
-
-# ============================================================
-# 2. FILTERING
-# ============================================================
-data = data[~data["diabetes_stage"].isin(["Type 1", "Gestational"])].copy()
-data = data.dropna(subset=["hba1c"])
-
-# hba1c (NGSP %) → mmol/mol (IFCC) - samme formel som XGBoost og Decision Tree
-data["hba1c_mmolmol"] = 10.93 * data["hba1c"] - 23.5
-
-# Fjern yderligere "midt i mellem" patienter for bedre læring (samme som XGBoost)
-data = data[(data["hba1c_mmolmol"] < 45) | (data["hba1c_mmolmol"] > 50)].copy()
-
-# Binær label
-data["hba1c_class"] = (data["hba1c_mmolmol"] >= 48).astype(int)
 print("\nClass counts:")
-print(data["hba1c_class"].value_counts())
-
-# ============================================================
-# 3. FEATURE SETS
-# ============================================================
-features_home = [
-    "age", "bmi", "waist_to_hip_ratio", "diet_score",
-    "physical_activity_minutes_per_week", "sleep_hours_per_day",
-    "smoking_status_encoded", "alcohol_consumption_per_week",
-    "family_history_diabetes"
-]
-
-features_clinical = ["glucose_fasting", "insulin_level", "heart_rate"]
-
-X_home = data[features_home]
-X_clinical = data[features_clinical]
-y = data["hba1c_class"]
+print(y.value_counts())
 
 # ============================================================
 # 4. TRAIN & EVALUATE FUNCTION WITH CROSS-VALIDATION
@@ -61,14 +31,12 @@ def evaluate_model_cv(X, y, label, cv=5):
     X_scaled = scaler.fit_transform(X)
 
     model = RandomForestClassifier(
-        n_estimators=200,        # Flere træer for bedre performance
-        max_depth=15,            # Dybere træer for bedre læring
-        min_samples_split=5,     # Mindre restriktiv splitting
-        min_samples_leaf=2,      # Mindre restriktiv leaf size
-        max_features="sqrt",     # Optimal for Random Forest
-        class_weight="balanced", # Håndter klasse imbalance
-        bootstrap=True,          # Bootstrap sampling
-        n_jobs=-1,               # Brug alle kerner
+        n_estimators=100,        # færre træer = hurtigere
+        max_depth=6,           # lavere dybde = mindre CPU-forbrug
+        min_samples_leaf=4,     # forhindrer overfitting
+        max_features="sqrt",    # hurtigere splits
+        class_weight="balanced",
+        n_jobs=-1,              # brug alle kerner (hurtigere)
         random_state=42
     )
 
@@ -92,19 +60,8 @@ def evaluate_model_cv(X, y, label, cv=5):
     print(f"{label} test set metrics:")
     print(f"Accuracy: {acc:.3f}, Precision: {prec:.3f}, Recall: {rec:.3f}, ROC-AUC: {roc_auc:.3f}")
 
-    # Plot ROC
-    plt.plot(fpr, tpr, lw=2, label=f"{label} (AUC={roc_auc:.3f})")
-
 # ============================================================
 # 5. RUN MODELS
 # ============================================================
-plt.figure(figsize=(6, 4))
 evaluate_model_cv(X_home, y, "Home Data")
 evaluate_model_cv(X_clinical, y, "Clinical Data")
-plt.plot([0,1],[0,1],"k--", lw=1)
-plt.xlabel("False Positive Rate")
-plt.ylabel("True Positive Rate")
-plt.title("ROC Curve – Binary Classification")
-plt.legend()
-plt.tight_layout()
-plt.show()
