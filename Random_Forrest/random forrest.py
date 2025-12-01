@@ -2,6 +2,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import accuracy_score, precision_score, recall_score, roc_curve, auc
+import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import importlib.util
@@ -60,8 +61,19 @@ def evaluate_model_cv(X, y, label, cv=5):
     print(f"{label} test set metrics:")
     print(f"Accuracy: {acc:.3f}, Precision: {prec:.3f}, Recall: {rec:.3f}, ROC-AUC: {roc_auc:.3f}")
 
+    # Plot ROC
+    plt.plot(fpr, tpr, lw=2, label=f"{label} (AUC={roc_auc:.3f})")
+
 # ============================================================
 # 5. RUN MODELS
 # ============================================================
+plt.figure(figsize=(6, 4))
 evaluate_model_cv(X_home, y, "Home Data")
 evaluate_model_cv(X_clinical, y, "Clinical Data")
+plt.plot([0,1],[0,1],"k--", lw=1)
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve – Binary Classification")
+plt.legend()
+plt.tight_layout()
+plt.show()
