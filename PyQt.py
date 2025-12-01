@@ -25,7 +25,7 @@ from sklearn.metrics import (
 # IMPORT DATA FROM Data procesing.py
 # ============================================================
 script_dir = os.path.dirname(os.path.abspath(__file__))
-data_processing_path = os.path.join(script_dir, "..", "Data procesing.py")
+data_processing_path = os.path.join(script_dir, "Data procesing.py")
 spec = importlib.util.spec_from_file_location("data_processing", data_processing_path)
 data_processing = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(data_processing)
@@ -183,7 +183,6 @@ plt.title('ROC Curve – XGBoost Binary Classification (HbA1c ≥ 48 mmol/mol)')
 plt.legend(loc="lower right")
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
-plt.show()
 
 # ============================================================
 # SUMMARY (valgfri - opsummering af resultater)
