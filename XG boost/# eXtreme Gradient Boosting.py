@@ -85,14 +85,18 @@ def train_and_evaluate_xgboost(X, y, label):
     X_train_s = scaler.fit_transform(X_train)
     X_test_s = scaler.transform(X_test)
     
-    # Definer XGBoost model med dine specifikke hyperparametre
+    # Definer XGBoost model med optimerede hyperparametre
     model = XGBClassifier(
-        n_estimators=50,
-        gamma=0.5,
-        max_depth=4,
+        n_estimators=200,           # Flere træer for bedre performance
+        gamma=0.1,                  # Lavere gamma = mindre regularization
+        max_depth=6,                # Dybere træer for bedre læring
         subsample=0.8,
         colsample_bytree=0.8,
-        learning_rate=0.1,
+        learning_rate=0.05,         # Lavere learning rate med flere estimators
+        min_child_weight=3,         # Forhindrer overfitting
+        reg_alpha=0.1,              # L1 regularization
+        reg_lambda=1.0,             # L2 regularization
+        scale_pos_weight=1,         # Håndter klasse imbalance hvis nødvendigt
         random_state=42,
         eval_metric='logloss'
     )
@@ -135,7 +139,7 @@ def train_and_evaluate_xgboost(X, y, label):
     
     print()
     print(f"{label}: {model.__class__.__name__}")
-    print(f"Hyperparametre: n_estimators=50, gamma=0.5, max_depth=4, subsample=0.8, colsample_bytree=0.8, learning_rate=0.1")
+    print(f"Hyperparametre: n_estimators=200, gamma=0.1, max_depth=6, learning_rate=0.05")
     print(f"Accuracy: {acc:.1%}")
     print(f"Precision:     {prec:.3f}")
     print(f"Recall:        {rec:.3f}")
@@ -152,12 +156,16 @@ def cross_validate_xgboost(X, y, label):
     X_scaled = scaler.fit_transform(X)
     
     model = XGBClassifier(
-        n_estimators=50,
-        gamma=0.5,
-        max_depth=4,
+        n_estimators=200,           # Flere træer for bedre performance
+        gamma=0.1,                  # Lavere gamma = mindre regularization
+        max_depth=6,                # Dybere træer for bedre læring
         subsample=0.8,
         colsample_bytree=0.8,
-        learning_rate=0.1,
+        learning_rate=0.05,         # Lavere learning rate med flere estimators
+        min_child_weight=3,         # Forhindrer overfitting
+        reg_alpha=0.1,              # L1 regularization
+        reg_lambda=1.0,             # L2 regularization
+        scale_pos_weight=1,         # Håndter klasse imbalance hvis nødvendigt
         random_state=42,
         eval_metric='logloss'
     )
@@ -166,7 +174,7 @@ def cross_validate_xgboost(X, y, label):
     
     print()
     print(f"{label} ({model.__class__.__name__})")
-    print(f"Hyperparametre: n_estimators=50, gamma=0.5, max_depth=4, subsample=0.8, colsample_bytree=0.8, learning_rate=0.1")
+    print(f"Hyperparametre: n_estimators=200, gamma=0.1, max_depth=6, learning_rate=0.05")
     print(f"Cross-val accuracy: {cv_scores.mean()*100:.2f}% ± {cv_scores.std()*100:.2f}%")
 
 # ============================================================

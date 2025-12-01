@@ -26,13 +26,11 @@ data = pd.concat([data.drop(["gender", "ethnicity", "employment_status"], axis=1
 data = data[~data["diabetes_stage"].isin(["Type 1", "Gestational"])].copy()
 data = data.dropna(subset=["hba1c"])
 
-# HbA1c (NGSP %) → mmol/mol (IFCC)
-data["hba1c_mmolmol"] = (data["hba1c"] - 2.15) * 10.929
+# hba1c (NGSP %) → mmol/mol (IFCC) - samme formel som XGBoost og Decision Tree
+data["hba1c_mmolmol"] = 10.93 * data["hba1c"] - 23.5
 
-# Fjern uoverensstemmende labels
-mask_no_diabetes_high = (data["diabetes_stage"] == "no diabetes") & (data["hba1c_mmolmol"] >= 48)
-mask_diabetes_low = data["diabetes_stage"].isin(["pre-diabetes", "Type 2"]) & (data["hba1c_mmolmol"] < 48)
-data = data[~(mask_no_diabetes_high | mask_diabetes_low)].copy()
+# Fjern yderligere "midt i mellem" patienter for bedre læring (samme som XGBoost)
+data = data[(data["hba1c_mmolmol"] < 45) | (data["hba1c_mmolmol"] > 50)].copy()
 
 # Binær label
 data["hba1c_class"] = (data["hba1c_mmolmol"] >= 48).astype(int)
@@ -63,12 +61,14 @@ def evaluate_model_cv(X, y, label, cv=5):
     X_scaled = scaler.fit_transform(X)
 
     model = RandomForestClassifier(
-        n_estimators=100,        # færre træer = hurtigere
-        max_depth=6,           # lavere dybde = mindre CPU-forbrug
-        min_samples_leaf=4,     # forhindrer overfitting
-        max_features="sqrt",    # hurtigere splits
-        class_weight="balanced",
-        n_jobs=-1,              # brug alle kerner (hurtigere)
+        n_estimators=200,        # Flere træer for bedre performance
+        max_depth=15,            # Dybere træer for bedre læring
+        min_samples_split=5,     # Mindre restriktiv splitting
+        min_samples_leaf=2,      # Mindre restriktiv leaf size
+        max_features="sqrt",     # Optimal for Random Forest
+        class_weight="balanced", # Håndter klasse imbalance
+        bootstrap=True,          # Bootstrap sampling
+        n_jobs=-1,               # Brug alle kerner
         random_state=42
     )
 
@@ -76,15 +76,9 @@ def evaluate_model_cv(X, y, label, cv=5):
     cv_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring="accuracy")
     print(f"\n{label} 5-fold CV accuracy: {cv_scores.mean()*100:.2f}% ± {cv_scores.std()*100:.2f}%")
 
-<<<<<<< Updated upstream
     # 2️⃣ Split og ROC på test
     X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, stratify=y, random_state=42)
     model.fit(X_train, y_train)
-=======
-    # Model
-    model = RandomForestClassifier(n_estimators=10, min_samples_leaf=21, random_state=42)
-    model.fit(X_train_s, y_train)
->>>>>>> Stashed changes
 
     y_pred = model.predict(X_test)
     y_score = model.predict_proba(X_test)[:, 1]

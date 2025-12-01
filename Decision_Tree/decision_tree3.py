@@ -28,19 +28,23 @@ data = data.dropna(subset=["hba1c"])
 
 # hba1c (NGSP %) → mmol/mol (IFCC)
 data["hba1c_mmolmol"] = 10.93 * data["hba1c"] - 23.5
-data = data[~((data["hba1c_mmolmol"] < 48) & (data["diabetes_stage"] == "Type 2"))]
+
+# Fjern yderligere "midt i mellem" patienter for bedre læring (samme som XGBoost)
+data = data[(data["hba1c_mmolmol"] < 45) | (data["hba1c_mmolmol"] > 50)].copy()
+
 # ============================================================
 # 3. BINARY CLASSIFICATION
 # ============================================================
 data["hba1c_class"] = (data["hba1c_mmolmol"] >= 48).astype(int)
 
 # ============================================================
-# 4. FEATURE SETS
+# 4. FEATURE SETS (samme som XGBoost og Random Forest)
 # ============================================================
 X_home = data[
     [
         "age",
         "bmi",
+        "waist_to_hip_ratio",
         "diet_score",
         "physical_activity_minutes_per_week",
         "sleep_hours_per_day",
@@ -52,7 +56,7 @@ X_home = data[
 
 X_clinical = data[["glucose_fasting", "insulin_level", "heart_rate"]]
 
-y = data["diagnosed_diabetes"]
+y = data["hba1c_class"]
 
 # ============================================================
 # 5. EVALUATION FUNCTION (BINARY)
