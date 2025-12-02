@@ -69,6 +69,30 @@ def train_and_evaluate_xgboost(X, y, label):
     y_pred = model.predict(X_test_s)
     y_proba = model.predict_proba(X_test_s)[:, 1]  # Probability for class 1
     
+
+    # ============================================
+    # Threshold tuning (samme metode som før)
+    # ============================================
+    thresholds = np.linspace(0.1, 0.9, 200)
+    best_thresh = 0.5
+    best_acc = 0
+
+    for t in thresholds:
+        preds = (y_proba >= t).astype(int)
+        acc = accuracy_score(y_test, preds)
+        if acc > best_acc:
+            best_acc = acc
+            best_thresh = t
+
+    # ============================================
+    # Percentiler (samme metode som før)
+    # ============================================
+    p25 = np.percentile(y_proba, 25)
+    p50 = np.percentile(y_proba, 50)
+    p75 = np.percentile(y_proba, 75)
+    percentiles = (p25, p50, p75)
+
+
     # DEBUG: Vis prediction fordeling
     unique_preds, counts_preds = np.unique(y_pred, return_counts=True)
     print(f"{label} - Prediction fordeling: {dict(zip(unique_preds, counts_preds))}")
@@ -107,7 +131,8 @@ def train_and_evaluate_xgboost(X, y, label):
     print(f"→ {int(acc * len(X_test))} rigtige ud af {len(X_test)} patienter")
     
     # Returner model og scaler for ROC plotting
-    return model, scaler, X_test_s, y_test
+    return model, scaler, best_thresh, percentiles, X_test_s, y_test
+
 
 def cross_validate_xgboost(X, y, label):
     """
@@ -153,8 +178,9 @@ cross_validate_xgboost(X_home, y, "Hjemme-data")
 cross_validate_xgboost(X_clinical, y, "Kliniske data")
 
 # ROC Curve plotting (kun én graf som ønsket)
-model_home, scaler_home, X_test_home, y_test_home = results_home
-model_clinical, scaler_clinical, X_test_clinical, y_test_clinical = results_clinical
+model_home, scaler_home, best_thresh_home, percentiles_home, X_test_home, y_test_home = results_home
+model_clinical, scaler_clinical, best_thresh_clinical, percentiles_clinical, X_test_clinical, y_test_clinical = results_clinical
+
 
 plt.figure(figsize=(8, 6))
 
@@ -507,7 +533,8 @@ class lineEditDemo(QWidget):
         
 
         # Scaling
-        homedata_scaled = self.scaler.transform(self.homedata)
+        homedata_scaled = self.scaler.transform([self.homedata])
+
 
         # Risikoscore
         risk = self.model.predict_proba(homedata_scaled)[0, 1]
@@ -533,7 +560,10 @@ class lineEditDemo(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    win = lineEditDemo()
+
+    win = lineEditDemo(model_home, scaler_home, best_thresh_home, percentiles_home)
+
+    win.on_left_submit()
     win.show()
     sys.exit(app.exec_())
 
