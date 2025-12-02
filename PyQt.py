@@ -38,9 +38,7 @@ y = data_processing.y
 # 5. XGBoost EVALUATION (med robust fejlhåndtering)
 # ============================================================
 def train_and_evaluate_xgboost(X, y, label):
-    """
-    Træn og evaluer XGBoost model med robust fejlhåndtering for NaN-værdier.
-    """
+    """Træn og evaluer XGBoost model med robust fejlhåndtering for NaN-værdier."""
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
@@ -87,7 +85,7 @@ def train_and_evaluate_xgboost(X, y, label):
         prec = precision_score(y_test, y_pred, zero_division=0)
         rec = recall_score(y_test, y_pred, zero_division=0)
     except Exception as e:
-        print(f"⚠️  Fejl i precision/recall beregning: {e}")
+        print(f"Fejl i precision/recall beregning: {e}")
         # Fallback beregning baseret på confusion matrix
         tn, fp, fn, tp = cm.ravel()
         if tp + fp == 0:  # Ingen positive predictioner
@@ -206,6 +204,7 @@ rec_clinical = recall_score(y_test_clinical, y_pred_clinical, zero_division=0)
 print(f"Hjemme-data:     Accuracy {acc_home:.1%} | Precision {prec_home:.3f} | Recall {rec_home:.3f} | AUC {roc_auc_home:.3f}")
 print(f"Kliniske data:   Accuracy {acc_clinical:.1%} | Precision {prec_clinical:.3f} | Recall {rec_clinical:.3f} | AUC {roc_auc_clinical:.3f}")
 
+
 # ============================================================
 # XG boost end
 # ============================================================
@@ -225,8 +224,13 @@ import sys
 import pandas as pd
 
 class lineEditDemo(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, model, scaler, best_threshold, percentiles, parent=None):
         super().__init__(parent)
+
+        self.model = model
+        self.scaler = scaler
+        self.best_threshold = best_threshold
+        self.percentiles = percentiles
 
         # Window size
         self.resize(900, 300)
@@ -495,6 +499,37 @@ class lineEditDemo(QWidget):
 
         self.homedata = self.patient_data.iloc[0].tolist()
         print(self.homedata)
+
+        ############################################################################
+        # Calculated results
+        ############################################################################
+
+        
+
+        # Scaling
+        homedata_scaled = self.scaler.transform(self.homedata)
+
+        # Risikoscore
+        risk = self.model.predict_proba(homedata_scaled)[0, 1]
+
+        print(f"\nDin risikoscore: {risk:.3f} (0 = lav risiko, 1 = høj risiko)")
+
+        # ---- CLASSIFICATION ----
+        diagnosis = "Høj risiko (model vurderer diabetes)" if risk >= self.best_threshold else "Ingen diabetes-risiko"
+        print(f"Modelklassifikation: {diagnosis}")
+
+        # ---- RISK GROUP (percentiles) ----
+        p25, p50, p75 = self.percentiles
+        if risk < p25:
+            group = "Low"
+        elif risk < p50:
+            group = "Moderate"
+        elif risk < p75:
+            group = "High"
+        else:
+            group = "Very High"
+
+        print(f"Risikogruppe: {group}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

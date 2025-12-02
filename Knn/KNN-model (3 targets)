@@ -131,7 +131,7 @@ print(data["diabetes_stage"].value_counts())
 # ============================================================
 # HBA1C
 # ============================================================
-data["hba1c_class"] = (data["hba1c_mmolmol"] >= 42).astype(int)
+data["hba1c_class"] = (data["hba1c_mmolmol"] >= 48).astype(int)
 
 # ============================================================
 # Data visualisation
@@ -230,19 +230,20 @@ def train_and_evaluate(X, y, label):
     X_train_s = scaler.fit_transform(X_train)
     X_test_s = scaler.transform(X_test)
 
-    #Definerer k-range
+    # Definerer k-range
     k_values = range(10, 200, 2)
 
     best_k = None
     best_accuracy = 0
     best_precision = 0
     best_recall = 0
+    best_roc_auc = 0.0  # ny variabel til ROC-AUC
 
     for k in k_values:
         model = KNeighborsClassifier(n_neighbors=k)
         model.fit(X_train_s, y_train)
 
-        # Predictions
+        # Predictions (klasser)
         y_pred = model.predict(X_test_s)
 
         # Metrics
@@ -250,42 +251,27 @@ def train_and_evaluate(X, y, label):
         prec = precision_score(y_test, y_pred, zero_division=0)
         rec = recall_score(y_test, y_pred, zero_division=0)
 
+        # ROC-AUC: brug sandsynlighed for klasse 1
+        y_proba = model.predict_proba(X_test_s)[:, 1]
+        fpr, tpr, _ = roc_curve(y_test, y_proba)
+        roc_auc = auc(fpr, tpr)
+
+        # behold det k med bedst accuracy (som før)
         if acc > best_accuracy:
             best_accuracy = acc
             best_k = k
             best_precision = prec
             best_recall = rec
+            best_roc_auc = roc_auc   # gem tilhørende ROC-AUC
+
     print()
     print(f"{label}: {model.__class__.__name__}")
     print(f"Bedste k: {best_k}")
-    print(f"Accuracy: {best_accuracy:.1%}")
-    print(f"Precision:     {best_precision:.3f}")
-    print(f"Recall:        {best_recall:.3f}")
+    print(f"Accuracy:       {best_accuracy:.1%}")
+    print(f"Precision:      {best_precision:.3f}")
+    print(f"Recall:         {best_recall:.3f}")
+    print(f"ROC–AUC:        {best_roc_auc:.3f}")
     print(f"→ {int(best_accuracy * len(X_test))} rigtige ud af {len(X_test)} patienter")
-
-def cross_validate_model(X, y, label):
-
-    #Definerer k-range
-    k_values = range(10, 200, 2)
-    scaler = MinMaxScaler()
-    best_k = None
-    mean_score = 0
-    best_cv = 0
-    
-
-    for k in k_values:
-        model = KNeighborsClassifier(n_neighbors=k)
-        cv_scores = cross_val_score(model, scaler.fit_transform(X), y, cv=5)
-
-        if mean_score > best_mean:
-            best_mean = mean_score
-            best_cv = cv_scores
-            best_k = k
-
-    print()
-    print(f"{label} ({model.__class__.__name__})")
-    print(f"Bedste k: {best_k}")
-    print(f"\n{label} Cross-val accuracy: {best_cv.mean()*100:.2f}% ± {best_cv.std()*100:.2f}%")
 
 train_and_evaluate(X_home, y, "Hjemme-data")
 #cross_validate_model(X_home, y, "Hjemme-data")
