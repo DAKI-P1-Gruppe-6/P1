@@ -242,7 +242,7 @@ print(f"Kliniske data:   Accuracy {acc_clinical:.1%} | Precision {prec_clinical:
 # PyQt
 ############################################################################
 
-from PyQt5.QtWidgets import (QApplication, QWidget, QFormLayout, QSpinBox, QPushButton,QVBoxLayout, QLabel, QHBoxLayout, QGroupBox, QComboBox, QDoubleSpinBox)
+from PyQt5.QtWidgets import (QApplication, QWidget, QFormLayout, QSpinBox, QPushButton,QVBoxLayout, QLabel, QHBoxLayout, QGroupBox, QComboBox, QDoubleSpinBox,QLineEdit)
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
 from sklearn.preprocessing import OrdinalEncoder
@@ -369,7 +369,7 @@ class lineEditDemo(QWidget):
 
         # Physical activity input (minutes per week)
         self.txt_physical_activity = QSpinBox()
-        self.txt_physical_activity.setRange(0, 200)
+        self.txt_physical_activity.setRange(0, 3000)
         self.txt_physical_activity.setAlignment(Qt.AlignLeft)
         self.txt_physical_activity.setFont(QFont("Arial", 20))
         self.txt_physical_activity.setMinimumHeight(25)
@@ -422,7 +422,7 @@ class lineEditDemo(QWidget):
         left_form_layout.addRow("Waist-hip ratio (cm)", self.txt_waist_hip)
         left_form_layout.addRow("Physical activity (min/week)", self.txt_physical_activity)
         left_form_layout.addRow("Sleep (hours/day)", self.txt_sleep)
-        left_form_layout.addRow("Alcohol (per week)", self.txt_alcohol)
+        left_form_layout.addRow("Alcohol consumption (per week)", self.txt_alcohol)
         left_form_layout.addRow("Diet score (1–10)", self.combo_diet_score)
         left_form_layout.addRow("Smoking status", self.combo_smoking_status)
         left_form_layout.addRow("Family history of diabetes", self.combo_family_history)
@@ -452,12 +452,25 @@ class lineEditDemo(QWidget):
         ############################################################################
         middle_box = QGroupBox()
 
-        middle_label = QLabel("Results")
-        middle_label.setFont(QFont("Arial", 20, QFont.Bold))
-        middle_label.setAlignment(Qt.AlignLeft)
+        middle_label = QLabel("Your results")
+        middle_label.setFont(QFont("Arial", 28, QFont.Bold))
+        middle_label.setAlignment(Qt.AlignCenter)
+
+        self.group_label = QLabel("")  
+        self.group_label.setFont(QFont("Arial", 18, QFont.Bold))
+        self.group_label.setAlignment(Qt.AlignCenter)
+        font = self.group_label.font()
+        font.setUnderline(True)
+        self.group_label.setFont(font)
+
+        self.recommend_label = QLabel("")  
+        self.recommend_label.setFont(QFont("Arial", 14, QFont.Bold))
+        self.recommend_label.setAlignment(Qt.AlignCenter)
 
         middle_layout = QVBoxLayout()
         middle_layout.addWidget(middle_label)
+        middle_layout.addWidget(self.group_label)
+        middle_layout.addWidget(self.recommend_label)
 
         middle_box.setLayout(middle_layout)
 
@@ -473,6 +486,10 @@ class lineEditDemo(QWidget):
         main_layout.setStretch(0, 1)
         main_layout.setStretch(1, 1)
         main_layout.setStretch(1, 1)
+
+        main_layout.setAlignment(left_box, Qt.AlignTop)
+        main_layout.setAlignment(middle_box, Qt.AlignTop)
+        main_layout.setAlignment(right_box, Qt.AlignTop)
 
         self.setLayout(main_layout)
         self.setWindowTitle("Diabetes Screening Tool")
@@ -530,8 +547,6 @@ class lineEditDemo(QWidget):
         # Calculated results
         ############################################################################
 
-        
-
         # Scaling
         homedata_scaled = self.scaler.transform([self.homedata])
 
@@ -554,16 +569,23 @@ class lineEditDemo(QWidget):
         elif risk < p75:
             group = "High"
         else:
-            group = "Very High"
+            group = "Very high"
 
         print(f"Risikogruppe: {group}")
+
+        self.group_label.setText(f"{group} risk of diabetes")
+
+        if group == "Very high" or group == "High":
+            self.recommend_label.setText("Consider contacting your doctor")
+        
+        else:
+            self.recommend_label.clear()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     win = lineEditDemo(model_home, scaler_home, best_thresh_home, percentiles_home)
 
-    win.on_left_submit()
     win.show()
     sys.exit(app.exec_())
 
