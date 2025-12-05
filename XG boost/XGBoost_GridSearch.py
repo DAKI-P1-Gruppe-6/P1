@@ -1,3 +1,4 @@
+# hejsa  igen
 import pandas as pd
 import numpy as np
 import importlib.util
@@ -22,6 +23,7 @@ from xgboost import XGBClassifier
 script_dir = os.path.dirname(os.path.abspath(__file__))
 data_processing_path = os.path.join(script_dir, "..", "Data procesing.py")
 spec = importlib.util.spec_from_file_location("data_processing", data_processing_path)
+#hejsa
 data_processing = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(data_processing)
 
@@ -43,8 +45,8 @@ def load_saved_model(model_path, scaler_path):
     """
     model = joblib.load(model_path)
     scaler = joblib.load(scaler_path)
-    print(f"✅ Model loaded from: {model_path}")
-    print(f"✅ Scaler loaded from: {scaler_path}")
+    print(f"Model loaded from: {model_path}")
+    print(f"Scaler loaded from: {scaler_path}")
     return model, scaler
 
 # ============================================================
@@ -66,29 +68,53 @@ def evaluate_model_with_randomsearch(X, y, label, n_iter=100):
     X_test_scaled = scaler.transform(X_test)
 
     # --- RandomizedSearchCV: Test RANDOM sample of combinations ---
-    # Expanded parameter space
+    # Diverse parameter space - reduced values, more parameter types
     param_distributions = {
         # Tree Structure Parameters
-        'n_estimators': [50, 100, 150, 200, 250, 300, 350, 400, 450, 500],
-        'max_depth': [3, 4, 5, 6, 7, 8, 9, 10],
-        'max_leaves': [0, 15, 31, 47, 63, 79, 95],
+        'n_estimators': [50, 100, 200, 400],
+        'max_depth': [4, 6, 8, 10],
+        'max_leaves': [0, 31, 63],
+        'min_child_weight': [1, 5, 10],
         
         # Learning Parameters
-        'learning_rate': [0.001, 0.01, 0.025, 0.05, 0.075, 0.1, 0.15, 0.2],
+        'learning_rate': [0.01, 0.05, 0.1, 0.2],
         
         # Regularization Parameters
-        'gamma': [0, 0.05, 0.1, 0.3, 0.5, 0.7, 1.0, 1.5, 2.0],
-        'min_child_weight': [1, 2, 3, 4, 5, 7, 10],
-        'reg_alpha': [0, 0.01, 0.1, 0.3, 0.5, 0.7, 1.0],
-        'reg_lambda': [0.5, 1.0, 1.5, 2.0, 3.0, 5.0, 7.0, 10.0],
+        'gamma': [0, 0.1, 0.5, 1.0],  # min_split_loss
+        'reg_alpha': [0, 0.1, 1.0],  # L1 regularization
+        'reg_lambda': [1.0, 5.0, 10.0],  # L2 regularization
         
         # Sampling Parameters
-        'subsample': [0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0],
-        'colsample_bytree': [0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0],
-        'colsample_bylevel': [0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+        'subsample': [0.7, 0.8, 1.0],
+        'colsample_bytree': [0.7, 0.8, 1.0],
+        'colsample_bylevel': [0.8, 1.0],
+        'colsample_bynode': [0.8, 1.0],
         
-        # Class Balance Parameters
-        'scale_pos_weight': [1, 1.5, 2, 2.5, 3, 4, 5]
+        # Tree Method and Growth Policy
+        'tree_method': ['auto', 'hist'],
+        'grow_policy': ['depthwise', 'lossguide'],
+        'max_delta_step': [0, 1, 5],
+        
+        # Histogram and Binning
+        'max_bin': [128, 256, 512],  # Number of bins for histogram
+        
+        # Sampling Method
+        'sampling_method': ['uniform', 'gradient_based'],  # Sampling strategy
+        
+        # Parallel Trees (Random Forest style)
+        'num_parallel_tree': [1, 2, 3],  # Multiple trees per iteration
+        
+        # Class Balance
+        'scale_pos_weight': [1, 2, 4],
+        
+        # Booster Type
+        'booster': ['gbtree', 'dart'],  # dart = dropout trees
+        
+        # DART specific (only used if booster='dart')
+        'sample_type': ['uniform', 'weighted'],
+        'normalize_type': ['tree', 'forest'],
+        'rate_drop': [0.0, 0.1, 0.3],  # Dropout rate
+        'skip_drop': [0.0, 0.3, 0.5]  # Probability of skipping dropout
     }
     
     # Calculate total possible combinations
@@ -99,7 +125,6 @@ def evaluate_model_with_randomsearch(X, y, label, n_iter=100):
     xgb_model = XGBClassifier(
         random_state=42,
         eval_metric='logloss',
-        booster='gbtree',
         n_jobs=-1
     )
     
@@ -121,10 +146,10 @@ def evaluate_model_with_randomsearch(X, y, label, n_iter=100):
     print(f"Testing {n_iter} RANDOM combinations with 3-fold CV...")
     print(f"Total fits: {n_iter * 3}")
     print(f"Optimizing for: Accuracy\n")
-    print("⚡ Much faster than GridSearch!\n")
+    print("Much faster than GridSearch!\n")
     random_search.fit(X_train_scaled, y_train)
     
-    print(f"\n✅ RandomizedSearchCV completed!")
+    print(f"\nRandomizedSearchCV completed!")
     print(f"\nBest parameters: {random_search.best_params_}")
     print(f"Best CV Accuracy: {random_search.best_score_:.4f}")
     
@@ -207,9 +232,9 @@ def evaluate_model_with_randomsearch(X, y, label, n_iter=100):
     metadata_path = os.path.join(models_dir, metadata_filename)
     joblib.dump(metadata, metadata_path)
     
-    print(f"\n📁 Model saved to: {model_path}")
-    print(f"📁 Scaler saved to: {scaler_path}")
-    print(f"📁 Metadata saved to: {metadata_path}")
+    print(f"\nModel saved to: {model_path}")
+    print(f"Scaler saved to: {scaler_path}")
+    print(f"Metadata saved to: {metadata_path}")
     
     return {
         'Model': 'XGBoost',
@@ -229,7 +254,7 @@ def evaluate_model_with_randomsearch(X, y, label, n_iter=100):
 # ============================================================
 # RUN RANDOMIZED SEARCH
 # ============================================================
-print("\n" + "🔍 Randomized Search on Home Data")
+print("\nRandomized Search on Home Data")
 print("Finding great hyperparameters efficiently...")
 N_ITERATIONS = 100  # Adjust this value
 result_home = evaluate_model_with_randomsearch(X_home, y, "Hjemme-data", n_iter=N_ITERATIONS)
@@ -263,7 +288,7 @@ print(f"  Model: {result_home['Model_Path']}")
 print(f"  Scaler: {result_home['Scaler_Path']}")
 
 print("\n" + "="*70)
-print("✅ Model optimized and saved!")
-print("⚡ RandomizedSearch completed efficiently!")
+print("Model optimized and saved!")
+print("RandomizedSearch completed efficiently!")
 print("="*70)
 
