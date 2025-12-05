@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import importlib.util
+import os
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler, label_binarize
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
@@ -19,65 +21,22 @@ from sklearn.linear_model import LogisticRegression
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler, MinMaxScaler, label_binarize
-from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.model_selection import train_test_split, cross_val_score, RandomizedSearchCV
 from sklearn.metrics import accuracy_score, precision_score, recall_score, confusion_matrix, roc_curve, auc
 from sklearn.linear_model import LogisticRegression # kan udskiftes
 
-# 1. Dataindlæsning og encoding
+# ============================================================
+# IMPORT DATA FROM Data procesing.py
+# ============================================================
+script_dir = os.path.dirname(os.path.abspath(__file__))
+data_processing_path = os.path.join(script_dir, "..", "Data procesing.py")
+spec = importlib.util.spec_from_file_location("data_processing", data_processing_path)
+data_processing = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(data_processing)
 
-diabetes_data = pd.read_csv("diabetes_dataset.csv")
-
-# Ordinal encoding
-diabetes_data["education_level_encoded"] = OrdinalEncoder().fit_transform(
-    diabetes_data[["education_level"]]
-)
-diabetes_data["smoking_status_encoded"] = OrdinalEncoder().fit_transform(
-    diabetes_data[["smoking_status"]]
-)
-
-# One-hot encoding
-onehot_encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
-ethnicity_one_hot = onehot_encoder.fit_transform(
-    diabetes_data[["gender", "ethnicity", "employment_status"]]
-)
-ethnicity_one_hot_df = pd.DataFrame(
-    ethnicity_one_hot,
-    columns=onehot_encoder.get_feature_names_out(["gender", "ethnicity", "employment_status"]),
-)
-data_encoded = pd.concat(
-    [diabetes_data.drop(["gender", "ethnicity", "employment_status"], axis=1), ethnicity_one_hot_df],
-    axis=1,
-)
-
-# 2. Filtrering og HbA1c-konvertering
-
-filtered_data = data_encoded[~data_encoded["diabetes_stage"].isin(["Type 1", "Gestational"])].copy()
-filtered_data = filtered_data.dropna(subset=["hba1c"])
-filtered_data["hba1c_mmolmol"] = 10.93 * filtered_data["hba1c"] - 23.5
-
-# 3. Binary klassifikation: Type 2 Diabetes (>=48) vs No Diabetes (<48)
-filtered_data["hba1c_class"] = (filtered_data["hba1c_mmolmol"] >= 48).astype(int)
-# Class 0: No Diabetes (< 48 mmol/mol)
-# Class 1: Type 2 Diabetes (>= 48 mmol/mol)
-
-# -------------------------------------------------------------
-# 4. Feature sets
-# -------------------------------------------------------------
-X_home = filtered_data[
-    [
-        "age",
-        "bmi",
-        "waist_to_hip_ratio",
-        "diet_score",
-        "physical_activity_minutes_per_week",
-        "sleep_hours_per_day",
-        "smoking_status_encoded",
-        "alcohol_consumption_per_week",
-        "family_history_diabetes",
-    ]
-]
-X_clinical = filtered_data[["glucose_fasting", "insulin_level", "heart_rate"]]
-y = filtered_data["hba1c_class"]
+X_home = data_processing.X_home
+X_clinical = data_processing.X_clinical
+y = data_processing.y
 
 # -------------------------------------------------------------
 # 5. GridSearch for optimal hyperparameters
@@ -86,9 +45,9 @@ y = filtered_data["hba1c_class"]
 # Dictionary to store results for comparison
 results_comparison = []
 
-def evaluate_model(X, y, label):
+def evaluate_model(X, y, label, n_iter=100):
     print(f"\n{'='*70}")
-    print(f"GRID SEARCH - {label}")
+    print(f"RANDOMIZED SEARCH - {label}")
     print(f"{'='*70}\n")
     
     # Split data
@@ -101,34 +60,39 @@ def evaluate_model(X, y, label):
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
 
-    # --- GridSearchCV for optimal parameters ---
-    param_grid = {
-        'C': [0.001, 0.01, 0.1, 1, 10, 100],
-        'penalty': ['l2'],
+    # --- RandomizedSearchCV for optimal parameters ---
+    param_distributions = {
+        'C': [0.001, 0.01, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0],
+        'penalty': ['l1', 'l2', 'elasticnet', None],
         'solver': ['lbfgs', 'liblinear', 'saga'],
-        'max_iter': [500, 1000],
-        'class_weight': ['balanced', None]
+        'max_iter': [100, 200, 500, 1000, 2000, 5000],
+        'class_weight': [None, 'balanced'],
+        'l1_ratio': [0, 0.15, 0.25, 0.5, 0.75, 0.85, 1.0]  # For elasticnet
     }
     
     logistic_model = LogisticRegression(random_state=42)
     
-    grid_search = GridSearchCV(
+    random_search = RandomizedSearchCV(
         logistic_model,
-        param_grid,
-        cv=5,
+        param_distributions,
+        n_iter=n_iter,
+        cv=3,
         scoring='roc_auc',
-        n_jobs=1,  # Changed from -1 to avoid Python 3.13 multiprocessing bug
-        verbose=1
+        n_jobs=-1,
+        verbose=2,
+        random_state=42
     )
     
-    print(f"Fitting GridSearchCV on {label}...")
-    grid_search.fit(X_train, y_train)
+    print(f"Fitting RandomizedSearchCV on {label}...")
+    print(f"Testing {n_iter} random combinations with 3-fold CV...")
+    random_search.fit(X_train, y_train)
     
-    print(f"\nBest parameters: {grid_search.best_params_}")
-    print(f"Best cross-validation ROC-AUC: {grid_search.best_score_:.4f}")
+    print(f"\n✅ RandomizedSearchCV completed!")
+    print(f"\nBest parameters: {random_search.best_params_}")
+    print(f"Best cross-validation ROC-AUC: {random_search.best_score_:.4f}")
     
     # Use best model
-    model = grid_search.best_estimator_
+    model = random_search.best_estimator_
 
     # Forudsigelser
     y_pred = model.predict(X_test)
@@ -148,9 +112,12 @@ def evaluate_model(X, y, label):
 
     # Udskriv resultater
     print(f"\n{'='*70}")
-    print(f"EVALUATION - {label}")
+    print(f"TEST SET EVALUATION - {label}")
     print(f"{'='*70}\n")
-    print(f"Best Model Parameters: {model.get_params()}\n")
+    print(f"Best Model Parameters:")
+    for param, value in random_search.best_params_.items():
+        print(f"  {param}: {value}")
+    print()
     print(f"Accuracy:             {acc:.4f}")
     print(f"Precision:            {prec:.4f}")
     print(f"Recall:               {rec:.4f}")
@@ -171,19 +138,25 @@ def evaluate_model(X, y, label):
 # -------------------------------------------------------------
 # 7. Kør modeller
 # -------------------------------------------------------------
-evaluate_model(X_home, y, "Hjemme-data")
-evaluate_model(X_clinical, y, "Kliniske data")
+N_ITERATIONS = 100  # Adjust this value
+evaluate_model(X_home, y, "Hjemme-data", n_iter=N_ITERATIONS)
 
 
 # -------------------------------------------------------------
-# Comparison Table
+# Results Summary
 # -------------------------------------------------------------
 print("\n" + "="*70)
-print("COMPARISON - LOGISTIC REGRESSION")
+print("LOGISTIC REGRESSION RANDOMIZED SEARCH RESULTS")
 print("="*70)
 
-comparison_df = pd.DataFrame(results_comparison)
-print("\n", comparison_df.to_string(index=False))
+if results_comparison:
+    comparison_df = pd.DataFrame(results_comparison)
+    print("\n", comparison_df.to_string(index=False))
+    print("\n")
+    print("✅ Model optimized and ready!")
+    print("⚡ RandomizedSearch completed efficiently!")
+else:
+    print("No results to display.")
 print("\n")
 
 # -------------------------------------------------------------

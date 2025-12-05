@@ -3,7 +3,7 @@ import numpy as np
 import importlib.util
 import os
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import train_test_split, RandomizedSearchCV
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -28,11 +28,11 @@ X_clinical = data_processing.X_clinical
 y = data_processing.y
 
 # ============================================================
-# GRID SEARCH FUNCTION
+# RANDOMIZED SEARCH FUNCTION
 # ============================================================
-def evaluate_model(X, y, label):
+def evaluate_model(X, y, label, n_iter=100):
     print(f"\n{'='*70}")
-    print(f"GRID SEARCH - {label}")
+    print(f"RANDOMIZED SEARCH - {label}")
     print(f"{'='*70}\n")
     
     # Split data
@@ -45,36 +45,42 @@ def evaluate_model(X, y, label):
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
 
-    # --- GridSearchCV for optimal parameters ---
-    param_grid = {
-        'criterion': ['gini', 'entropy'],
-        'max_depth': [20, 30, 40, None],
-        'min_samples_split': [5, 10, 15],
-        'min_samples_leaf': [5, 10, 15],
-        'max_leaf_nodes': [20, 30, 40, None],
-        'min_impurity_decrease': [0.0, 1e-5, 1e-4],
-        'max_features': ['sqrt', None]
+    # --- RandomizedSearchCV for optimal parameters ---
+    param_distributions = {
+        'criterion': ['gini', 'entropy', 'log_loss'],
+        'splitter': ['best', 'random'],
+        'max_depth': [3, 5, 7, 10, 15, 20, 25, 30, 35, 40, None],
+        'min_samples_split': [2, 5, 10, 15, 20, 30, 50],
+        'min_samples_leaf': [1, 2, 4, 7, 10, 15, 20],
+        'max_features': [None, 'sqrt', 'log2', 0.5, 0.7, 0.9],
+        'max_leaf_nodes': [None, 10, 20, 30, 40, 50, 75, 100],
+        'min_impurity_decrease': [0.0, 0.00001, 0.0001, 0.001, 0.01],
+        'class_weight': [None, 'balanced']
     }
     
     dt_model = DecisionTreeClassifier(random_state=42)
     
-    grid_search = GridSearchCV(
+    random_search = RandomizedSearchCV(
         dt_model,
-        param_grid,
-        cv=2,  # Minimal cross-validation for faster execution
+        param_distributions,
+        n_iter=n_iter,
+        cv=3,
         scoring='roc_auc',
-        n_jobs=1,  # Changed from -1 to avoid Python 3.13 multiprocessing bug
-        verbose=1
+        n_jobs=-1,
+        verbose=2,
+        random_state=42
     )
     
-    print(f"Fitting GridSearchCV on {label}...")
-    grid_search.fit(X_train_scaled, y_train)
+    print(f"Fitting RandomizedSearchCV on {label}...")
+    print(f"Testing {n_iter} random combinations with 3-fold CV...")
+    random_search.fit(X_train_scaled, y_train)
     
-    print(f"\nBest parameters: {grid_search.best_params_}")
-    print(f"Best training ROC-AUC: {grid_search.best_score_:.4f}")
+    print(f"\n✅ RandomizedSearchCV completed!")
+    print(f"\nBest parameters: {random_search.best_params_}")
+    print(f"Best CV ROC-AUC: {random_search.best_score_:.4f}")
     
     # Use best model
-    model = grid_search.best_estimator_
+    model = random_search.best_estimator_
 
     # Predictions
     y_pred = model.predict(X_test_scaled)
@@ -97,10 +103,10 @@ def evaluate_model(X, y, label):
 
     # Print results
     print(f"\n{'='*70}")
-    print(f"EVALUATION - {label}")
+    print(f"TEST SET EVALUATION - {label}")
     print(f"{'='*70}\n")
     print(f"Best Model Parameters:")
-    for param, value in grid_search.best_params_.items():
+    for param, value in random_search.best_params_.items():
         print(f"  {param}: {value}")
     print(f"\nAccuracy:             {acc:.4f}")
     print(f"Precision:            {prec:.4f}")
@@ -112,7 +118,8 @@ def evaluate_model(X, y, label):
     return {
         'Model': 'Decision Tree',
         'Data': label,
-        'Best_Params': grid_search.best_params_,
+        'Best_Params': random_search.best_params_,
+        'CV_Score': random_search.best_score_,
         'Accuracy': acc,
         'Precision': prec,
         'Recall': rec,
@@ -121,35 +128,37 @@ def evaluate_model(X, y, label):
     }
 
 # ============================================================
-# RUN GRID SEARCH
+# RUN RANDOMIZED SEARCH
 # ============================================================
-results = []
+print("\n" + "🔍 Randomized Search on Home Data")
+N_ITERATIONS = 100  # Adjust this value
 
-# Test on home data
-result_home = evaluate_model(X_home, y, "Hjemme-data")
-results.append(result_home)
-
-# Test on clinical data
-result_clinical = evaluate_model(X_clinical, y, "Kliniske data")
-results.append(result_clinical)
+# Test on home data only
+result_home = evaluate_model(X_home, y, "Hjemme-data", n_iter=N_ITERATIONS)
 
 # ============================================================
-# COMPARISON TABLE
+# RESULTS SUMMARY
 # ============================================================
 print("\n" + "="*70)
-print("COMPARISON - DECISION TREE GRID SEARCH RESULTS")
+print("DECISION TREE RANDOMIZED SEARCH RESULTS")
 print("="*70)
 
-comparison_df = pd.DataFrame(results)
-print("\n", comparison_df[['Data', 'Accuracy', 'Recall', 'ROC-AUC', '(Recall+AUC)/2']].to_string(index=False))
-print("\n")
+print(f"\nData: {result_home['Data']}")
+print(f"CV Score:         {result_home['CV_Score']:.4f}")
+print(f"Accuracy:         {result_home['Accuracy']:.4f}")
+print(f"Recall:           {result_home['Recall']:.4f}")
+print(f"ROC-AUC:          {result_home['ROC-AUC']:.4f}")
+print(f"(Recall+AUC)/2:   {result_home['(Recall+AUC)/2']:.4f}")
 
-# Print best parameters for each dataset
+# Print best parameters
 print("\n" + "="*70)
-print("BEST PARAMETERS SUMMARY")
+print("BEST PARAMETERS FOUND")
 print("="*70)
-for result in results:
-    print(f"\n{result['Data']}:")
-    for param, value in result['Best_Params'].items():
-        print(f"  {param}: {value}")
+for param, value in result_home['Best_Params'].items():
+    print(f"  {param}: {value}")
+
+print("\n" + "="*70)
+print("✅ Model optimized and ready!")
+print("⚡ RandomizedSearch completed efficiently!")
+print("="*70)
 
