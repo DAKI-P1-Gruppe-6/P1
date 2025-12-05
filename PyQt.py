@@ -524,7 +524,7 @@ class lineEditDemo(QWidget):
             "sleep": self.txt_sleep.value(),
             "smoking_status": self.combo_smoking_status.currentText(),
             "alcohol": self.txt_alcohol.value(),
-            "family_history": self.combo_family_history.currentText(),
+            "family_history_diabetes": self.combo_family_history.currentText(),
         }
 
         self.smoking_encoder = OrdinalEncoder(categories=[["Never","Former","Current"]])
@@ -538,7 +538,7 @@ class lineEditDemo(QWidget):
         family_map = {"No": 0, "Yes": 1}
 
         self.patient_data["smoking_status"] = (self.patient_data["smoking_status"].map(smoking_map).astype(int))
-        self.patient_data["family_history"] = (self.patient_data["family_history"].map(family_map).astype(int))
+        self.patient_data["family_history_diabetes"] = (self.patient_data["family_history_diabetes"].map(family_map).astype(int))
 
         self.homedata = self.patient_data.iloc[0].tolist()
         print(self.homedata)
@@ -571,7 +571,7 @@ class lineEditDemo(QWidget):
         else:
             group = "Very high"
 
-        print(f"Risikogruppe: {group}")
+        print(f"Risk group: {group}")
 
         self.group_label.setText(f"{group} risk of diabetes")
 
