@@ -25,7 +25,7 @@ from sklearn.metrics import (
 # IMPORT DATA FROM Data procesing.py
 # ============================================================
 script_dir = os.path.dirname(os.path.abspath(__file__))
-data_processing_path = os.path.join(script_dir, "..", "Data procesing.py")
+data_processing_path = os.path.join(script_dir, "Data procesing.py")
 spec = importlib.util.spec_from_file_location("data_processing", data_processing_path)
 data_processing = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(data_processing)
@@ -38,9 +38,7 @@ y = data_processing.y
 # 5. XGBoost EVALUATION (med robust fejlhåndtering)
 # ============================================================
 def train_and_evaluate_xgboost(X, y, label):
-    """
-    Træn og evaluer XGBoost model med robust fejlhåndtering for NaN-værdier.
-    """
+    """Træn og evaluer XGBoost model med robust fejlhåndtering for NaN-værdier."""
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
@@ -71,6 +69,30 @@ def train_and_evaluate_xgboost(X, y, label):
     y_pred = model.predict(X_test_s)
     y_proba = model.predict_proba(X_test_s)[:, 1]  # Probability for class 1
     
+
+    # ============================================
+    # Threshold tuning (samme metode som før)
+    # ============================================
+    thresholds = np.linspace(0.1, 0.9, 200)
+    best_thresh = 0.5
+    best_acc = 0
+
+    for t in thresholds:
+        preds = (y_proba >= t).astype(int)
+        acc = accuracy_score(y_test, preds)
+        if acc > best_acc:
+            best_acc = acc
+            best_thresh = t
+
+    # ============================================
+    # Percentiler (samme metode som før)
+    # ============================================
+    p25 = np.percentile(y_proba, 25)
+    p50 = np.percentile(y_proba, 50)
+    p75 = np.percentile(y_proba, 75)
+    percentiles = (p25, p50, p75)
+
+
     # DEBUG: Vis prediction fordeling
     unique_preds, counts_preds = np.unique(y_pred, return_counts=True)
     print(f"{label} - Prediction fordeling: {dict(zip(unique_preds, counts_preds))}")
@@ -87,7 +109,7 @@ def train_and_evaluate_xgboost(X, y, label):
         prec = precision_score(y_test, y_pred, zero_division=0)
         rec = recall_score(y_test, y_pred, zero_division=0)
     except Exception as e:
-        print(f"⚠️  Fejl i precision/recall beregning: {e}")
+        print(f"Fejl i precision/recall beregning: {e}")
         # Fallback beregning baseret på confusion matrix
         tn, fp, fn, tp = cm.ravel()
         if tp + fp == 0:  # Ingen positive predictioner
@@ -109,7 +131,8 @@ def train_and_evaluate_xgboost(X, y, label):
     print(f"→ {int(acc * len(X_test))} rigtige ud af {len(X_test)} patienter")
     
     # Returner model og scaler for ROC plotting
-    return model, scaler, X_test_s, y_test
+    return model, scaler, best_thresh, percentiles, X_test_s, y_test
+
 
 def cross_validate_xgboost(X, y, label):
     """
@@ -155,8 +178,9 @@ cross_validate_xgboost(X_home, y, "Hjemme-data")
 cross_validate_xgboost(X_clinical, y, "Kliniske data")
 
 # ROC Curve plotting (kun én graf som ønsket)
-model_home, scaler_home, X_test_home, y_test_home = results_home
-model_clinical, scaler_clinical, X_test_clinical, y_test_clinical = results_clinical
+model_home, scaler_home, best_thresh_home, percentiles_home, X_test_home, y_test_home = results_home
+model_clinical, scaler_clinical, best_thresh_clinical, percentiles_clinical, X_test_clinical, y_test_clinical = results_clinical
+
 
 plt.figure(figsize=(8, 6))
 
@@ -183,7 +207,6 @@ plt.title('ROC Curve – XGBoost Binary Classification (HbA1c ≥ 48 mmol/mol)')
 plt.legend(loc="lower right")
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
-plt.show()
 
 # ============================================================
 # SUMMARY (valgfri - opsummering af resultater)
@@ -207,6 +230,7 @@ rec_clinical = recall_score(y_test_clinical, y_pred_clinical, zero_division=0)
 print(f"Hjemme-data:     Accuracy {acc_home:.1%} | Precision {prec_home:.3f} | Recall {rec_home:.3f} | AUC {roc_auc_home:.3f}")
 print(f"Kliniske data:   Accuracy {acc_clinical:.1%} | Precision {prec_clinical:.3f} | Recall {rec_clinical:.3f} | AUC {roc_auc_clinical:.3f}")
 
+
 # ============================================================
 # XG boost end
 # ============================================================
@@ -218,7 +242,7 @@ print(f"Kliniske data:   Accuracy {acc_clinical:.1%} | Precision {prec_clinical:
 # PyQt
 ############################################################################
 
-from PyQt5.QtWidgets import (QApplication, QWidget, QFormLayout, QSpinBox, QPushButton,QVBoxLayout, QLabel, QHBoxLayout, QGroupBox, QComboBox, QDoubleSpinBox)
+from PyQt5.QtWidgets import (QApplication, QWidget, QFormLayout, QSpinBox, QPushButton,QVBoxLayout, QLabel, QHBoxLayout, QGroupBox, QComboBox, QDoubleSpinBox,QLineEdit)
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
 from sklearn.preprocessing import OrdinalEncoder
@@ -226,8 +250,13 @@ import sys
 import pandas as pd
 
 class lineEditDemo(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, model, scaler, best_threshold, percentiles, parent=None):
         super().__init__(parent)
+
+        self.model = model
+        self.scaler = scaler
+        self.best_threshold = best_threshold
+        self.percentiles = percentiles
 
         # Window size
         self.resize(900, 300)
@@ -340,7 +369,7 @@ class lineEditDemo(QWidget):
 
         # Physical activity input (minutes per week)
         self.txt_physical_activity = QSpinBox()
-        self.txt_physical_activity.setRange(0, 200)
+        self.txt_physical_activity.setRange(0, 3000)
         self.txt_physical_activity.setAlignment(Qt.AlignLeft)
         self.txt_physical_activity.setFont(QFont("Arial", 20))
         self.txt_physical_activity.setMinimumHeight(25)
@@ -393,7 +422,7 @@ class lineEditDemo(QWidget):
         left_form_layout.addRow("Waist-hip ratio (cm)", self.txt_waist_hip)
         left_form_layout.addRow("Physical activity (min/week)", self.txt_physical_activity)
         left_form_layout.addRow("Sleep (hours/day)", self.txt_sleep)
-        left_form_layout.addRow("Alcohol (per week)", self.txt_alcohol)
+        left_form_layout.addRow("Alcohol consumption (per week)", self.txt_alcohol)
         left_form_layout.addRow("Diet score (1–10)", self.combo_diet_score)
         left_form_layout.addRow("Smoking status", self.combo_smoking_status)
         left_form_layout.addRow("Family history of diabetes", self.combo_family_history)
@@ -423,12 +452,25 @@ class lineEditDemo(QWidget):
         ############################################################################
         middle_box = QGroupBox()
 
-        middle_label = QLabel("Results")
-        middle_label.setFont(QFont("Arial", 20, QFont.Bold))
-        middle_label.setAlignment(Qt.AlignLeft)
+        middle_label = QLabel("Your results")
+        middle_label.setFont(QFont("Arial", 28, QFont.Bold))
+        middle_label.setAlignment(Qt.AlignCenter)
+
+        self.group_label = QLabel("")  
+        self.group_label.setFont(QFont("Arial", 18, QFont.Bold))
+        self.group_label.setAlignment(Qt.AlignCenter)
+        font = self.group_label.font()
+        font.setUnderline(True)
+        self.group_label.setFont(font)
+
+        self.recommend_label = QLabel("")  
+        self.recommend_label.setFont(QFont("Arial", 14, QFont.Bold))
+        self.recommend_label.setAlignment(Qt.AlignCenter)
 
         middle_layout = QVBoxLayout()
         middle_layout.addWidget(middle_label)
+        middle_layout.addWidget(self.group_label)
+        middle_layout.addWidget(self.recommend_label)
 
         middle_box.setLayout(middle_layout)
 
@@ -444,6 +486,10 @@ class lineEditDemo(QWidget):
         main_layout.setStretch(0, 1)
         main_layout.setStretch(1, 1)
         main_layout.setStretch(1, 1)
+
+        main_layout.setAlignment(left_box, Qt.AlignTop)
+        main_layout.setAlignment(middle_box, Qt.AlignTop)
+        main_layout.setAlignment(right_box, Qt.AlignTop)
 
         self.setLayout(main_layout)
         self.setWindowTitle("Diabetes Screening Tool")
@@ -478,7 +524,7 @@ class lineEditDemo(QWidget):
             "sleep": self.txt_sleep.value(),
             "smoking_status": self.combo_smoking_status.currentText(),
             "alcohol": self.txt_alcohol.value(),
-            "family_history": self.combo_family_history.currentText(),
+            "family_history_diabetes": self.combo_family_history.currentText(),
         }
 
         self.smoking_encoder = OrdinalEncoder(categories=[["Never","Former","Current"]])
@@ -492,14 +538,54 @@ class lineEditDemo(QWidget):
         family_map = {"No": 0, "Yes": 1}
 
         self.patient_data["smoking_status"] = (self.patient_data["smoking_status"].map(smoking_map).astype(int))
-        self.patient_data["family_history"] = (self.patient_data["family_history"].map(family_map).astype(int))
+        self.patient_data["family_history_diabetes"] = (self.patient_data["family_history_diabetes"].map(family_map).astype(int))
 
         self.homedata = self.patient_data.iloc[0].tolist()
         print(self.homedata)
 
+        ############################################################################
+        # Calculated results
+        ############################################################################
+
+        # Scaling
+        homedata_scaled = self.scaler.transform([self.homedata])
+
+
+        # Risikoscore
+        risk = self.model.predict_proba(homedata_scaled)[0, 1]
+
+        print(f"\nDin risikoscore: {risk:.3f} (0 = lav risiko, 1 = høj risiko)")
+
+        # ---- CLASSIFICATION ----
+        diagnosis = "Høj risiko (model vurderer diabetes)" if risk >= self.best_threshold else "Ingen diabetes-risiko"
+        print(f"Modelklassifikation: {diagnosis}")
+
+        # ---- RISK GROUP (percentiles) ----
+        p25, p50, p75 = self.percentiles
+        if risk < p25:
+            group = "Low"
+        elif risk < p50:
+            group = "Moderate"
+        elif risk < p75:
+            group = "High"
+        else:
+            group = "Very high"
+
+        print(f"Risk group: {group}")
+
+        self.group_label.setText(f"{group} risk of diabetes")
+
+        if group == "Very high" or group == "High":
+            self.recommend_label.setText("Consider contacting your doctor")
+        
+        else:
+            self.recommend_label.clear()
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    win = lineEditDemo()
+
+    win = lineEditDemo(model_home, scaler_home, best_thresh_home, percentiles_home)
+
     win.show()
     sys.exit(app.exec_())
 
