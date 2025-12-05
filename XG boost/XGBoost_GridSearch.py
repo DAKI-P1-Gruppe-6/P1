@@ -68,53 +68,53 @@ def evaluate_model_with_randomsearch(X, y, label, n_iter=100):
     X_test_scaled = scaler.transform(X_test)
 
     # --- RandomizedSearchCV: Test RANDOM sample of combinations ---
-    # Diverse parameter space - reduced values, more parameter types
+    # Optimized parameter space - balanced diversity and feasibility
     param_distributions = {
         # Tree Structure Parameters
-        'n_estimators': [50, 100, 200, 400],
-        'max_depth': [4, 6, 8, 10],
-        'max_leaves': [0, 31, 63],
-        'min_child_weight': [1, 5, 10],
+        'n_estimators': [100, 200, 400],
+        'max_depth': [4, 6, 8],
+        'min_child_weight': [1, 5],
         
         # Learning Parameters
-        'learning_rate': [0.01, 0.05, 0.1, 0.2],
+        'learning_rate': [0.01, 0.1, 0.2],
         
         # Regularization Parameters
-        'gamma': [0, 0.1, 0.5, 1.0],  # min_split_loss
-        'reg_alpha': [0, 0.1, 1.0],  # L1 regularization
-        'reg_lambda': [1.0, 5.0, 10.0],  # L2 regularization
+        'gamma': [0, 0.5],  # min_split_loss
+        'reg_alpha': [0, 0.5],  # L1 regularization
+        'reg_lambda': [1.0, 5.0],  # L2 regularization
         
         # Sampling Parameters
-        'subsample': [0.7, 0.8, 1.0],
-        'colsample_bytree': [0.7, 0.8, 1.0],
+        'subsample': [0.7, 0.9],
+        'colsample_bytree': [0.7, 0.9],
         'colsample_bylevel': [0.8, 1.0],
-        'colsample_bynode': [0.8, 1.0],
         
-        # Tree Method and Growth Policy
+        # Tree Method
         'tree_method': ['auto', 'hist'],
-        'grow_policy': ['depthwise', 'lossguide'],
-        'max_delta_step': [0, 1, 5],
         
-        # Histogram and Binning
-        'max_bin': [128, 256, 512],  # Number of bins for histogram
+        # Histogram Binning
+        'max_bin': [256, 512],  # Number of bins for histogram
         
         # Sampling Method
         'sampling_method': ['uniform', 'gradient_based'],  # Sampling strategy
         
         # Parallel Trees (Random Forest style)
-        'num_parallel_tree': [1, 2, 3],  # Multiple trees per iteration
+        'num_parallel_tree': [1, 2],  # Multiple trees per iteration
         
         # Class Balance
-        'scale_pos_weight': [1, 2, 4],
+        'scale_pos_weight': [1, 3],
         
         # Booster Type
         'booster': ['gbtree', 'dart'],  # dart = dropout trees
         
         # DART specific (only used if booster='dart')
-        'sample_type': ['uniform', 'weighted'],
-        'normalize_type': ['tree', 'forest'],
-        'rate_drop': [0.0, 0.1, 0.3],  # Dropout rate
-        'skip_drop': [0.0, 0.3, 0.5]  # Probability of skipping dropout
+        'rate_drop': [0.1, 0.3],  # Dropout rate
+        'skip_drop': [0.3, 0.5],  # Probability of skipping dropout
+        
+        # Growth Policy
+        'grow_policy': ['depthwise', 'lossguide'],
+        
+        # Max Delta Step (helps imbalanced data)
+        'max_delta_step': [0, 5]
     }
     
     # Calculate total possible combinations
