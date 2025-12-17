@@ -135,11 +135,12 @@ def evaluate_model(X, y, label):
     print(f"Total fits (med 2-fold CV): {total_fits}\n")
     
     # GridSearch på Subset med 2-fold CV (hurtigere)
+    # Brug 'balanced_accuracy' for ubalancerede datasets
     grid_search = GridSearchCV(
         svm_base,
         param_grid, 
         cv=2,  # Reduceret fra 5 til 2 for hastighed
-        scoring='accuracy',
+        scoring='balanced_accuracy',  # Bedre for ubalancerede data end 'accuracy'
         n_jobs=1, 
         verbose=1
     )
