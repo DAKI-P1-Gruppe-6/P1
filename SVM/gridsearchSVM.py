@@ -120,12 +120,13 @@ def evaluate_model(X, y, label):
         'gamma': [0.001, 0.01, 0.1, 1]
     }
     
+    #jeg er gay
     # GridSearch på Subset
     grid_search = GridSearchCV(
         svm_base,
-        param_grid,
+        param_grid, 
         cv=5,
-        scoring='roc_auc',
+        scoring='accuracy',
         n_jobs=1, 
         verbose=1
     )
