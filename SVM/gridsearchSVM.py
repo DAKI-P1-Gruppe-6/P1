@@ -103,29 +103,38 @@ def evaluate_model(X, y, label):
     )
     
     print(f"Total training data: {len(X_train)} rækker")
-    print(f"GridSearch subset (30%): {len(X_train_subset)} rækker\n")
+    print(f"GridSearch subset (30%): {len(X_train_subset)} rækker")
+    
+    # Beregn antal kombinationer
+    n_kernels = len(param_grid['kernel'])
+    n_C = len(param_grid['C'])
+    n_gamma = len(param_grid['gamma'])
+    total_combinations = n_kernels * n_C * n_gamma
+    total_fits = total_combinations * 2  # cv=2
+    
+    print(f"Parameter kombinationer: {total_combinations}")
+    print(f"Total fits (med 2-fold CV): {total_fits}\n")
 
     # --- SVM Model Setup ---
     svm_base = SVC(
-        max_iter=7000, 
+        max_iter=20000,  # Øget for bedre konvergens
         class_weight='balanced', 
         random_state=42, 
         probability=True
     )
 
-    # --- Parameter Grid ---
+    # --- Parameter Grid (optimeret for hastighed) ---
     param_grid = {
-        'kernel': ['rbf', 'linear', 'poly'],
+        'kernel': ['rbf', 'linear'],  # Fjernet 'poly' - er meget langsom
         'C': [0.1, 1, 10, 100],
-        'gamma': [0.001, 0.01, 0.1, 1]
+        'gamma': ['scale', 0.001, 0.01, 0.1]  # 'scale' er ofte god default
     }
     
-    #jeg er gay
-    # GridSearch på Subset
+    # GridSearch på Subset med 2-fold CV (hurtigere)
     grid_search = GridSearchCV(
         svm_base,
         param_grid, 
-        cv=5,
+        cv=2,  # Reduceret fra 5 til 2 for hastighed
         scoring='accuracy',
         n_jobs=1, 
         verbose=1
@@ -141,7 +150,7 @@ def evaluate_model(X, y, label):
     
     final_model = SVC(
         **best_params, 
-        max_iter=7000,
+        max_iter=20000,  # Øget for bedre konvergens
         class_weight='balanced',
         random_state=42,
         probability=True
