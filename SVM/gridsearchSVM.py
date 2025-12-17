@@ -3,6 +3,7 @@ matplotlib.use("TkAgg")
 
 import pandas as pd
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import OrdinalEncoder, OneHotEncoder, StandardScaler
@@ -20,7 +21,10 @@ from sklearn.svm import SVC
 # -------------------------------------------------------------
 # 1. Dataindlæsning og encoding
 # -------------------------------------------------------------
-diabetes_data = pd.read_csv("diabetes_dataset.csv")
+# Find den korrekte sti til CSV-filen
+script_dir = os.path.dirname(os.path.abspath(__file__))
+csv_path = os.path.join(script_dir, "..", "diabetes_dataset.csv")
+diabetes_data = pd.read_csv(csv_path)
 
 # Ordinal encoding
 diabetes_data["education_level_encoded"] = OrdinalEncoder().fit_transform(
@@ -103,17 +107,7 @@ def evaluate_model(X, y, label):
     )
     
     print(f"Total training data: {len(X_train)} rækker")
-    print(f"GridSearch subset (30%): {len(X_train_subset)} rækker")
-    
-    # Beregn antal kombinationer
-    n_kernels = len(param_grid['kernel'])
-    n_C = len(param_grid['C'])
-    n_gamma = len(param_grid['gamma'])
-    total_combinations = n_kernels * n_C * n_gamma
-    total_fits = total_combinations * 2  # cv=2
-    
-    print(f"Parameter kombinationer: {total_combinations}")
-    print(f"Total fits (med 2-fold CV): {total_fits}\n")
+    print(f"GridSearch subset (30%): {len(X_train_subset)} rækker\n")
 
     # --- SVM Model Setup ---
     svm_base = SVC(
@@ -129,6 +123,16 @@ def evaluate_model(X, y, label):
         'C': [0.1, 1, 10, 100],
         'gamma': ['scale', 0.001, 0.01, 0.1]  # 'scale' er ofte god default
     }
+    
+    # Beregn antal kombinationer
+    n_kernels = len(param_grid['kernel'])
+    n_C = len(param_grid['C'])
+    n_gamma = len(param_grid['gamma'])
+    total_combinations = n_kernels * n_C * n_gamma
+    total_fits = total_combinations * 2  # cv=2
+    
+    print(f"Parameter kombinationer: {total_combinations}")
+    print(f"Total fits (med 2-fold CV): {total_fits}\n")
     
     # GridSearch på Subset med 2-fold CV (hurtigere)
     grid_search = GridSearchCV(
